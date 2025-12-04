@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jacob Nadal — The Traversal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Darker+Grotesque:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #e8f4fc;
+            --bg-secondary: #d0ebf7;
+            --bg-sidebar: #b8d4e8;
+            --text-primary: #1a3a4a;
+            --text-secondary: #4a6d7c;
+            --text-muted: #5a7d8c;
+            --accent: #1d6a98;
+            --font-display: 'Cormorant Garamond', serif;
+            --font-body: 'Darker Grotesque', sans-serif;
+            --sidebar-width: 280px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* Layout Container */
+        .layout {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            height: 100vh;
+            background: var(--bg-sidebar);
+            border-right: 1px solid rgba(45, 138, 184, 0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 3rem 2.5rem;
+            position: fixed;
+            left: 0;
+            top: 0;
+        }
+
+        .sidebar-header .logo {
+            font-family: var(--font-display);
+            font-size: 1.6rem;
+            font-weight: 400;
+            color: var(--text-primary);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .sidebar-header .brand {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            font-style: italic;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+        }
+
+        .nav-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .nav-links a {
+            font-family: var(--font-body);
+            font-size: 1.05rem;
+            font-weight: 400;
+            letter-spacing: 0.03em;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.6rem 0;
+            display: block;
+            position: relative;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a::before {
+            content: '';
+            position: absolute;
+            left: -1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 3px;
+            height: 0;
+            background: var(--accent);
+            transition: height 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-links a.active {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .nav-links a.active::before {
+            height: 20px;
+        }
+
+        .sidebar-footer {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+        }
+
+        .sidebar-footer p {
+            margin-bottom: 0.3rem;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            height: 100vh;
+            position: relative;
+        }
+
+        /* Content Panels */
+        .panel {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .panel.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Overview Panel - Gallery */
+        #overview {
+            padding: 2rem;
+            overflow-y: auto;
+            background: var(--bg-primary);
+        }
+
+        .gallery-grid {
+            column-count: 3;
+            column-gap: 0.75rem;
+        }
+
+        .gallery-item {
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            border-radius: 2px;
+            margin-bottom: 0.75rem;
+            break-inside: avoid;
+            display: block;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .gallery-item:hover img {
+            transform: scale(1.03);
+        }
+
+        .gallery-video {
+            break-inside: avoid;
+        }
+
+        .gallery-video video {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            cursor: pointer;
+        }
+
+        .gallery-video:hover video {
+            transform: scale(1.03);
+        }
+
+        /* About Panel */
+        #about {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            background: var(--bg-secondary);
+            overflow-y: auto;
+        }
+
+        .about-content {
+            max-width: 600px;
+            text-align: left;
+        }
+
+        .about-content h2 {
+            font-family: var(--font-display);
+            font-size: 3rem;
+            font-weight: 300;
+            margin-bottom: 2rem;
+            letter-spacing: -0.01em;
+        }
+
+        .about-content p {
+            font-size: 1.15rem;
+            font-weight: 300;
+            line-height: 1.9;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .about-content .secret-text {
+            font-size: 0.85rem;
+            color: var(--bg-secondary);
+            transition: color 0.5s ease;
+            cursor: default;
+            user-select: none;
+            margin-top: 2rem;
+        }
+
+        .about-content .secret-text:hover {
+            color: var(--accent);
+        }
+
+        /* Contact Panel */
+        #contact {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            background: var(--bg-primary);
+        }
+
+        .contact-content {
+            text-align: left;
+        }
+
+        .contact-content h2 {
+            font-family: var(--font-display);
+            font-size: 3rem;
+            font-weight: 300;
+            margin-bottom: 2rem;
+            letter-spacing: -0.01em;
+        }
+
+        .contact-content a {
+            font-size: 1.4rem;
+            font-weight: 300;
+            color: var(--text-secondary);
+            text-decoration: none;
+            position: relative;
+            transition: color 0.3s ease;
+        }
+
+        .contact-content a:hover {
+            color: var(--accent);
+        }
+
+        .contact-content a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: var(--accent);
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.4s ease;
+        }
+
+        .contact-content a:hover::after {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+
+        .contact-location {
+            margin-top: 1.5rem;
+            font-size: 1rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        /* Lightbox */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(26, 58, 74, 0.95);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+            cursor: zoom-out;
+        }
+
+        .lightbox.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .lightbox img {
+            max-width: 90vw;
+            max-height: 90vh;
+            object-fit: contain;
+            transform: scale(0.95);
+            transition: transform 0.4s ease;
+        }
+
+        .lightbox.active img {
+            transform: scale(1);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            font-size: 1rem;
+            letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.7);
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .lightbox-close:hover {
+            color: #fff;
+        }
+
+        /* Page Loader */
+        .page-loader {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-secondary);
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
+        }
+
+        .page-loader.loaded {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loader-text {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            font-weight: 300;
+            letter-spacing: 0.1em;
+            color: var(--text-primary);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 1200px) {
+            .gallery-grid {
+                column-count: 2;
+            }
+        }
+
+        @media (max-width: 768px) {
+            :root {
+                --sidebar-width: 100%;
+            }
+
+            .layout {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                padding: 1.5rem 2rem;
+                flex-direction: row;
+                align-items: center;
+            }
+
+            .sidebar-header {
+                display: flex;
+                align-items: baseline;
+                gap: 1rem;
+            }
+
+            .sidebar-header .brand {
+                display: none;
+            }
+
+            .nav-links {
+                flex-direction: row;
+                gap: 1.5rem;
+            }
+
+            .nav-links a::before {
+                display: none;
+            }
+
+            .nav-links a.active {
+                border-bottom: 2px solid var(--accent);
+            }
+
+            .sidebar-footer {
+                display: none;
+            }
+
+            .main-content {
+                margin-left: 0;
+                height: calc(100vh - 80px);
+            }
+
+            .gallery-grid {
+                column-count: 1;
+            }
+
+            #about, #contact {
+                padding: 2rem;
+            }
+
+            .about-content h2,
+            .contact-content h2 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Page Loader -->
+    <div class="page-loader">
+        <span class="loader-text">The Traversal</span>
+    </div>
+
+    <div class="layout">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div>
+                <div class="sidebar-header">
+                    <a href="#" class="logo">Jacob Nadal</a>
+                    <span class="brand">The Traversal</span>
+                </div>
+            </div>
+
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="#" data-panel="overview" class="active">Overview</a></li>
+                    <li><a href="#" data-panel="about">About</a></li>
+                    <li><a href="#" data-panel="contact">Contact</a></li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <p>© 2025</p>
+                <p>Vancouver, BC</p>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Overview Panel - Gallery -->
+            <section id="overview" class="panel active">
+                <div class="gallery-grid">
+                    <!-- 1.jpg first, then videos spaced every 4 items (3 images between each) -->
+                    <div class="gallery-item"><img src="IMAGES/1.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000000410017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000000400017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000000410022.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/AWAGA_1.mov" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/2.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000021230009.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000050430035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/Fire_lookout_1.mp4" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/000034680028.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000034440031.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/3.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/AWAGA_2.mov" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/000000410013.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/002678200019.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000050430017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/abott_1.mp4" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/000034470019.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000034470017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/4.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/Icefileds_1.mov" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/000027940020.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000027940006.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000088690018.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/Fire_lookout_2.mp4" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/000027930016.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000034430022.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000027940011.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/SAS_1.mov" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/5.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000034450021.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000000410028.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/abott_2.mp4" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/000027940021.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000000420033.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000034470023.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/Icefileds_2.mov" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/000027940035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000007060035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000034470027.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item gallery-video">
+                        <video src="CLIPS/SAS_2.mov" autoplay muted loop playsinline></video>
+                    </div>
+                    <div class="gallery-item"><img src="IMAGES/000021240018.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                </div>
+            </section>
+
+            <!-- About Panel -->
+            <section id="about" class="panel">
+                <div class="about-content">
+                    <h2>About</h2>
+                    <p>
+                        Jacob Nadal is a film photographer based in Vancouver, British Columbia, documenting the world through the deliberate eye of analog photography. The Traversal is an ongoing visual journey—an exploration of light, landscape, and the quiet moments that exist between destinations.
+                    </p>
+                    <p>
+                        Working primarily with 35mm film, each image is a meditation on presence and place. From the rugged peaks of the Pacific Northwest to the golden hours along coastal shores, the work captures the essence of traversing through both geography and time.
+                    </p>
+                    <p class="secret-text">
+                        P.S. You found the hidden text. That kind of attention to detail? Respect.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Contact Panel -->
+            <section id="contact" class="panel">
+                <div class="contact-content">
+                    <h2>Get in Touch</h2>
+                    <a href="mailto:jacob24@rogers.com">jacob24@rogers.com</a>
+                    <p class="contact-location">Vancouver, British Columbia</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <button class="lightbox-close">CLOSE</button>
+        <img src="" alt="Enlarged view" id="lightboxImg">
+    </div>
+
+    <script>
+        // Page loader
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.querySelector('.page-loader').classList.add('loaded');
+            }, 800);
+        });
+
+        // Panel navigation
+        const navLinks = document.querySelectorAll('.nav-links a');
+        const panels = document.querySelectorAll('.panel');
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetPanel = link.getAttribute('data-panel');
+
+                // Update active nav link
+                navLinks.forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+
+                // Update active panel
+                panels.forEach(panel => {
+                    panel.classList.remove('active');
+                    if (panel.id === targetPanel) {
+                        panel.classList.add('active');
+                    }
+                });
+            });
+        });
+
+        // Lightbox
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightboxImg');
+        const galleryItems = document.querySelectorAll('.gallery-item img');
+
+        galleryItems.forEach(img => {
+            img.addEventListener('click', () => {
+                lightboxImg.src = img.src;
+                lightbox.classList.add('active');
+            });
+        });
+
+        function closeLightbox() {
+            lightbox.classList.remove('active');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeLightbox();
+        });
+
+        // Video click for fullscreen with sound
+        const videos = document.querySelectorAll('.gallery-video video');
+        videos.forEach(video => {
+            video.addEventListener('click', () => {
+                if (video.requestFullscreen) {
+                    video.requestFullscreen();
+                } else if (video.webkitRequestFullscreen) {
+                    video.webkitRequestFullscreen();
+                }
+                video.muted = false;
+            });
+        });
+    </script>
+</body>
+</html>
