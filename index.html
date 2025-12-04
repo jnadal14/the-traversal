@@ -216,6 +216,24 @@
             overflow-y: auto;
         }
 
+        .about-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 4rem;
+            max-width: 1000px;
+        }
+
+        .about-photo {
+            flex-shrink: 0;
+        }
+
+        .about-photo img {
+            width: 280px;
+            height: auto;
+            border-radius: 4px;
+            box-shadow: 0 8px 30px rgba(26, 58, 74, 0.15);
+        }
+
         .about-content {
             max-width: 600px;
             text-align: left;
@@ -455,6 +473,20 @@
                 padding: 2rem;
             }
 
+            .about-wrapper {
+                flex-direction: column;
+                gap: 2rem;
+                text-align: center;
+            }
+
+            .about-photo img {
+                width: 200px;
+            }
+
+            .about-content {
+                text-align: center;
+            }
+
             .about-content h2,
             .contact-content h2 {
                 font-size: 2rem;
@@ -565,17 +597,22 @@
 
             <!-- About Panel -->
             <section id="about" class="panel">
-                <div class="about-content">
-                    <h2>About</h2>
-                    <p>
-                        Jacob Nadal is a film photographer based in Vancouver, British Columbia, documenting the world through the deliberate eye of analog photography. The Traversal is an ongoing visual journey—an exploration of light, landscape, and the quiet moments that exist between destinations.
-                    </p>
-                    <p>
-                        Working primarily with 35mm film, each image is a meditation on presence and place. From the rugged peaks of the Pacific Northwest to the golden hours along coastal shores, the work captures the essence of traversing through both geography and time.
-                    </p>
-                    <p class="secret-text">
-                        P.S. You found the hidden text. That kind of attention to detail? Respect.
-                    </p>
+                <div class="about-wrapper">
+                    <div class="about-photo">
+                        <img src="ABOUT.jpg" alt="Jacob Nadal">
+                    </div>
+                    <div class="about-content">
+                        <h2>About</h2>
+                        <p>
+                            Jacob Nadal is a film photographer based in Vancouver, British Columbia, documenting the world through the deliberate eye of analog photography. The Traversal is an ongoing visual journey—an exploration of light, landscape, and the quiet moments that exist between destinations.
+                        </p>
+                        <p>
+                            Working primarily with 35mm portra 400, each image is a meditation on presence and place. From the rugged peaks of the Pacific Northwest to the golden hours along coastal shores, the work captures the essence of traversing through both geography and time.
+                        </p>
+                        <p class="secret-text">
+                            P.S. You found the hidden text. That kind of attention to detail? Respect.
+                        </p>
+                    </div>
                 </div>
             </section>
 
