@@ -8,7 +8,7 @@ A film photography portfolio by Jacob Nadal, documenting landscapes and quiet mo
 
 ## About
 
-The Traversal is an ongoing visual journey—an exploration of light, landscape, and the quiet moments that exist between destinations. Working primarily with 35mm film, each image is a meditation on presence and place. From the rugged peaks of the Pacific Northwest to the golden hours along coastal shores, the work captures the essence of traversing through both geography and time.
+The Traversal is an ongoing visual journey, an exploration of light, landscape, and the quiet moments that exist between destinations. Working primarily with 35mm film, each image is a meditation on presence and place. From the rugged peaks of the Pacific Northwest to the golden hours along coastal shores, the work captures the essence of traversing through both geography and time.
 
 ## Features
 
