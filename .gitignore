@@ -23,4 +23,5 @@ npm-debug.log*
 
 # Backup folders (original uncompressed files)
 IMAGES_BACKUP/
+CLIPS_BACKUP/
 
