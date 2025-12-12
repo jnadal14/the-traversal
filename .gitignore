@@ -21,6 +21,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Optional: Ignore large original files if you add compressed versions
-# ORIGINALS/
+# Backup folders (original uncompressed files)
+IMAGES_BACKUP/
 
