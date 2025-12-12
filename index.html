@@ -426,42 +426,47 @@
                 flex-direction: column;
             }
 
+            /* Mobile header - STACKED layout to prevent any overlap */
             .sidebar {
                 width: 100%;
                 height: auto;
                 position: relative;
                 padding: 1rem 1.5rem;
-                flex-direction: row;
-                flex-wrap: wrap;
-                align-items: center;
-                justify-content: space-between;
-                gap: 0.5rem;
-            }
-
-            .sidebar-header {
-                display: flex;
-                align-items: baseline;
+                flex-direction: column;
+                align-items: flex-start;
                 gap: 0.75rem;
             }
 
+            .sidebar > div:first-child {
+                width: 100%;
+            }
+
+            .sidebar-header {
+                display: block;
+            }
+
             .sidebar-header .logo {
-                font-size: 1.3rem;
+                font-size: 1.4rem;
                 margin-bottom: 0;
-                white-space: nowrap;
             }
 
             .sidebar-header .brand {
                 display: none;
             }
 
+            nav {
+                width: 100%;
+            }
+
             .nav-links {
                 flex-direction: row;
-                gap: 1rem;
+                gap: 1.5rem;
+                flex-wrap: wrap;
             }
 
             .nav-links a {
-                font-size: 0.95rem;
-                padding: 0.4rem 0;
+                font-size: 1rem;
+                padding: 0.3rem 0;
             }
 
             .nav-links a::before {
@@ -478,7 +483,7 @@
 
             .main-content {
                 margin-left: 0;
-                height: calc(100vh - 70px);
+                height: calc(100vh - 100px);
             }
 
             .gallery-grid {
@@ -506,42 +511,6 @@
             .about-content h2,
             .contact-content h2 {
                 font-size: 2rem;
-            }
-        }
-
-        /* Extra small phones */
-        @media (max-width: 400px) {
-            .sidebar {
-                flex-direction: column;
-                align-items: flex-start;
-                padding: 1rem;
-            }
-
-            .sidebar-header .logo {
-                font-size: 1.2rem;
-            }
-
-            .nav-links {
-                width: 100%;
-                justify-content: flex-start;
-                gap: 1.25rem;
-            }
-
-            .nav-links a {
-                font-size: 0.9rem;
-            }
-
-            .main-content {
-                height: calc(100vh - 100px);
-            }
-
-            .about-content h2,
-            .contact-content h2 {
-                font-size: 1.75rem;
-            }
-
-            .about-content p {
-                font-size: 1rem;
             }
         }
     </style>
