@@ -706,26 +706,61 @@
         });
 
         // Lazy load videos - only load when visible
-        const videoObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                const video = entry.target;
-                if (entry.isIntersecting) {
-                    // Load the video source if not already loaded
-                    if (!video.src && video.dataset.src) {
-                        video.src = video.dataset.src;
+        const videos = document.querySelectorAll('.gallery-video video');
+        
+        function loadAndPlayVideo(video) {
+            if (!video.src && video.dataset.src) {
+                video.src = video.dataset.src;
+                video.load();
+            }
+            video.play().catch(() => {});
+        }
+
+        // Check if IntersectionObserver is supported
+        if ('IntersectionObserver' in window) {
+            const videoObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const video = entry.target;
+                    if (entry.isIntersecting) {
+                        loadAndPlayVideo(video);
+                    } else {
+                        video.pause();
                     }
-                    video.play().catch(() => {}); // Play when visible
-                } else {
-                    video.pause(); // Pause when not visible
+                });
+            }, { rootMargin: '200px', threshold: 0 });
+
+            videos.forEach(video => {
+                videoObserver.observe(video);
+            });
+        } else {
+            // Fallback: load all videos if IntersectionObserver not supported
+            videos.forEach(video => loadAndPlayVideo(video));
+        }
+
+        // Also check visibility on scroll for overview panel
+        const overviewPanel = document.getElementById('overview');
+        overviewPanel.addEventListener('scroll', () => {
+            videos.forEach(video => {
+                const rect = video.getBoundingClientRect();
+                const inView = rect.top < window.innerHeight + 200 && rect.bottom > -200;
+                if (inView && !video.src && video.dataset.src) {
+                    loadAndPlayVideo(video);
                 }
             });
-        }, { rootMargin: '100px' }); // Start loading slightly before visible
+        });
 
-        const videos = document.querySelectorAll('.gallery-video video');
+        // Initial load for visible videos
+        setTimeout(() => {
+            videos.forEach(video => {
+                const rect = video.getBoundingClientRect();
+                if (rect.top < window.innerHeight + 200) {
+                    loadAndPlayVideo(video);
+                }
+            });
+        }, 100);
+
+        // Video click for fullscreen with sound
         videos.forEach(video => {
-            videoObserver.observe(video);
-            
-            // Video click for fullscreen with sound
             video.addEventListener('click', () => {
                 if (video.requestFullscreen) {
                     video.requestFullscreen();
