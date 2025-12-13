@@ -211,9 +211,10 @@
         /* About Panel */
         #about {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
             padding: 4rem;
+            padding-top: 3rem;
             background: var(--bg-secondary);
             overflow-y: auto;
         }
@@ -492,6 +493,7 @@
 
             #about, #contact {
                 padding: 2rem;
+                padding-top: 3rem;
             }
 
             .about-wrapper {
@@ -500,8 +502,13 @@
                 text-align: center;
             }
 
+            .about-photo {
+                padding-top: 1rem;
+            }
+
             .about-photo img {
-                width: 200px;
+                width: 180px;
+                max-width: 50vw;
             }
 
             .about-content {
