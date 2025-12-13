@@ -195,6 +195,11 @@
             break-inside: avoid;
         }
 
+        .gallery-video {
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
         .gallery-video video {
             width: 100%;
             height: auto;
@@ -202,6 +207,8 @@
             display: block;
             transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             cursor: pointer;
+            pointer-events: auto;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .gallery-video:hover video {
@@ -766,16 +773,42 @@
             });
         }, 100);
 
-        // Video click for fullscreen with sound
+        // Video click/tap for fullscreen with sound
         videos.forEach(video => {
-            video.addEventListener('click', () => {
-                if (video.requestFullscreen) {
+            // Make videos tappable on iOS
+            video.setAttribute('playsinline', '');
+            video.style.cursor = 'pointer';
+            
+            const handleVideoTap = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Unmute
+                video.muted = false;
+                
+                // Try different fullscreen methods
+                if (video.webkitEnterFullscreen) {
+                    // iOS Safari
+                    video.webkitEnterFullscreen();
+                } else if (video.requestFullscreen) {
                     video.requestFullscreen();
                 } else if (video.webkitRequestFullscreen) {
                     video.webkitRequestFullscreen();
+                } else if (video.mozRequestFullScreen) {
+                    video.mozRequestFullScreen();
+                } else {
+                    // Fallback: just play with sound if fullscreen not supported
+                    video.play();
                 }
-                video.muted = false;
-            });
+            };
+            
+            video.addEventListener('click', handleVideoTap);
+            video.addEventListener('touchend', handleVideoTap);
+        });
+        
+        // Ensure videos are interactive on iOS
+        document.querySelectorAll('.gallery-video').forEach(container => {
+            container.style.cursor = 'pointer';
         });
     </script>
 </body>
