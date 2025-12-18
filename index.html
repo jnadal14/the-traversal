@@ -499,23 +499,30 @@
             }
 
             #about, #contact {
-                padding: 2rem;
-                padding-top: 3rem;
+                padding: 1.5rem 0.5rem 2rem 0.5rem;
+                min-height: 80vh;
+                box-sizing: border-box;
             }
 
             .about-wrapper {
                 flex-direction: column;
-                gap: 2rem;
+                gap: 1.2rem;
                 text-align: center;
+                align-items: center;
             }
 
             .about-photo {
-                padding-top: 1rem;
+                padding-top: 0.2rem;
             }
 
             .about-photo img {
-                width: 180px;
-                max-width: 50vw;
+                width: 120px;
+                max-width: 80vw;
+                height: auto;
+                border-radius: 4px;
+                box-shadow: 0 4px 12px rgba(26, 58, 74, 0.15);
+                margin: 0 auto;
+                display: block;
             }
 
             .about-content {
@@ -540,7 +547,7 @@
         <aside class="sidebar">
             <div>
                 <div class="sidebar-header">
-                    <a href="#" class="logo">Jacob Nadal</a>
+                    <a href="#" class="logo" data-panel="overview">Jacob Nadal</a>
                     <span class="brand">The Traversal</span>
                 </div>
             </div>
@@ -699,6 +706,24 @@
             });
         });
 
+        // Logo click - go back to overview
+        const logo = document.querySelector('.logo');
+        logo.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Update active nav link
+            navLinks.forEach(l => l.classList.remove('active'));
+            document.querySelector('[data-panel="overview"]').classList.add('active');
+            
+            // Show overview panel
+            panels.forEach(panel => {
+                panel.classList.remove('active');
+                if (panel.id === 'overview') {
+                    panel.classList.add('active');
+                }
+            });
+        });
+
         // Lightbox
         const lightbox = document.getElementById('lightbox');
         const lightboxImg = document.getElementById('lightboxImg');
@@ -719,59 +744,55 @@
             if (e.key === 'Escape') closeLightbox();
         });
 
-        // Lazy load videos - only load when visible
+        // Video loading
         const videos = document.querySelectorAll('.gallery-video video');
         
-        function loadAndPlayVideo(video) {
+        function loadVideo(video) {
             if (!video.src && video.dataset.src) {
                 video.src = video.dataset.src;
                 video.load();
             }
+        }
+        
+        function playVideo(video) {
+            loadVideo(video);
             video.play().catch(() => {});
         }
 
-        // Check if IntersectionObserver is supported
-        if ('IntersectionObserver' in window) {
-            const videoObserver = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    const video = entry.target;
-                    if (entry.isIntersecting) {
-                        loadAndPlayVideo(video);
-                    } else {
-                        video.pause();
-                    }
-                });
-            }, { rootMargin: '200px', threshold: 0 });
-
-            videos.forEach(video => {
-                videoObserver.observe(video);
-            });
-        } else {
-            // Fallback: load all videos if IntersectionObserver not supported
-            videos.forEach(video => loadAndPlayVideo(video));
-        }
-
-        // Also check visibility on scroll for overview panel
-        const overviewPanel = document.getElementById('overview');
-        overviewPanel.addEventListener('scroll', () => {
-            videos.forEach(video => {
-                const rect = video.getBoundingClientRect();
-                const inView = rect.top < window.innerHeight + 200 && rect.bottom > -200;
-                if (inView && !video.src && video.dataset.src) {
-                    loadAndPlayVideo(video);
-                }
-            });
+        // Load all videos immediately for iPad/iOS compatibility
+        // (videos are now small enough after compression)
+        videos.forEach(video => {
+            loadVideo(video);
         });
 
-        // Initial load for visible videos
-        setTimeout(() => {
+        // Autoplay visible videos (may be blocked on iOS until user interacts)
+        function checkAndPlayVisibleVideos() {
             videos.forEach(video => {
                 const rect = video.getBoundingClientRect();
-                if (rect.top < window.innerHeight + 200) {
-                    loadAndPlayVideo(video);
+                const inView = rect.top < window.innerHeight + 100 && rect.bottom > -100;
+                if (inView) {
+                    video.play().catch(() => {});
+                } else {
+                    video.pause();
                 }
             });
-        }, 100);
+        }
+
+        // Check on scroll
+        const overviewPanel = document.getElementById('overview');
+        overviewPanel.addEventListener('scroll', checkAndPlayVisibleVideos);
+        
+        // Initial check
+        setTimeout(checkAndPlayVisibleVideos, 500);
+
+        // On iOS, enable autoplay after first user touch
+        let hasInteracted = false;
+        document.addEventListener('touchstart', () => {
+            if (!hasInteracted) {
+                hasInteracted = true;
+                checkAndPlayVisibleVideos();
+            }
+        }, { once: true });
 
         // Video click/tap for fullscreen with sound
         videos.forEach(video => {
