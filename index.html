@@ -851,7 +851,7 @@
                                     <div class="work-item-username">@eatswich</div>
                                 </div>
                                 <div class="work-item-image">
-                                    <video class="work-video" src="CLIPS/work/SWICHXAUDIOTECHNICA.mp4" muted loop playsinline preload="metadata"></video>
+                                    <video class="work-video" src="CLIPS/work/SWICHXAUDIOTECHNICA.mp4" muted loop playsinline preload="auto"></video>
                                 </div>
                                 <div class="work-item-content">
                                     <p class="work-item-caption">
@@ -873,7 +873,7 @@
                                     <div class="work-item-username">@dirtyaestheticband</div>
                                 </div>
                                 <div class="work-item-image">
-                                    <video class="work-video" src="CLIPS/work/CORDUROY_CLIPS.mp4" muted loop playsinline preload="metadata"></video>
+                                    <video class="work-video" src="CLIPS/work/CORDUROY_CLIPS.mp4" muted loop playsinline preload="auto"></video>
                                 </div>
                                 <div class="work-item-content">
                                     <p class="work-item-caption">
@@ -1108,17 +1108,31 @@
 
         // Work videos - unmute on hover, always playing
         const workVideos = document.querySelectorAll('.work-video');
+        
+        // Function to initialize work video playback
+        function initWorkVideos() {
+            workVideos.forEach(video => {
+                if (video.paused) {
+                    video.play().catch(() => {});
+                }
+            });
+        }
+        
         workVideos.forEach(video => {
             const workItem = video.closest('.work-item');
             
-            // Ensure video plays when loaded and keeps playing
+            // Try to play immediately when loaded
             video.addEventListener('loadeddata', () => {
                 video.play().catch(() => {});
             });
             
-            // Prevent video from pausing
-            video.addEventListener('pause', () => {
-                video.play().catch(() => {});
+            // Prevent video from pausing - but with a small delay to avoid conflicts
+            video.addEventListener('pause', (e) => {
+                setTimeout(() => {
+                    if (video.paused) {
+                        video.play().catch(() => {});
+                    }
+                }, 50);
             });
             
             // Audio control on hover - don't interrupt playback
@@ -1134,6 +1148,21 @@
                 video.muted = true;
             });
         });
+        
+        // Initialize videos when Work panel becomes active
+        const workPanel = document.getElementById('work');
+        const workObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.target.classList.contains('active')) {
+                    setTimeout(initWorkVideos, 200);
+                }
+            });
+        });
+        workObserver.observe(workPanel, { attributes: true, attributeFilter: ['class'] });
+        
+        // Also try to initialize on any user interaction
+        document.addEventListener('click', initWorkVideos, { once: false });
+        document.addEventListener('touchstart', initWorkVideos, { once: false });
     </script>
 </body>
 </html>
