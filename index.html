@@ -673,12 +673,14 @@
 
             .panel {
                 padding-top: 130px;
+                padding-bottom: max(3rem, env(safe-area-inset-bottom));
             }
 
             #overview {
                 padding-top: 130px;
                 padding-left: 1rem;
                 padding-right: 1rem;
+                padding-bottom: max(3rem, env(safe-area-inset-bottom));
             }
 
             .gallery-grid {
@@ -686,7 +688,8 @@
             }
 
             #about, #contact {
-                padding: 130px 1.5rem 2rem 1.5rem;
+                padding: 130px 1.5rem 3rem 1.5rem;
+                padding-bottom: max(3rem, env(safe-area-inset-bottom));
                 min-height: auto;
             }
 
@@ -730,7 +733,8 @@
             }
 
             #work {
-                padding: 130px 1rem 2rem 1rem;
+                padding: 130px 1rem 3rem 1rem;
+                padding-bottom: max(3rem, env(safe-area-inset-bottom));
             }
 
             .work-container {
