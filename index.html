@@ -1092,13 +1092,41 @@
         // Initial play after page load
         setTimeout(playVisibleVideos, 500);
 
-        // Video click/tap for fullscreen with sound
+        // Video click/tap for fullscreen with sound - with scroll detection
         videos.forEach(video => {
             // Make videos tappable on iOS
             video.setAttribute('playsinline', '');
             video.style.cursor = 'pointer';
             
+            let touchStartY = 0;
+            let touchStartTime = 0;
+            let hasMoved = false;
+            
+            // Track touch start
+            video.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
+                hasMoved = false;
+            }, { passive: true });
+            
+            // Track if user is scrolling
+            video.addEventListener('touchmove', (e) => {
+                const touchMoveY = e.touches[0].clientY;
+                const distance = Math.abs(touchMoveY - touchStartY);
+                if (distance > 10) { // If moved more than 10px, it's a scroll
+                    hasMoved = true;
+                }
+            }, { passive: true });
+            
+            // Only trigger fullscreen on intentional tap (not scroll)
             const handleVideoTap = (e) => {
+                const touchDuration = Date.now() - touchStartTime;
+                
+                // If it's a touch event and user scrolled or held too long, ignore
+                if (e.type === 'touchend' && (hasMoved || touchDuration > 500)) {
+                    return;
+                }
+                
                 e.preventDefault();
                 e.stopPropagation();
                 
