@@ -605,7 +605,10 @@
             .sidebar {
                 width: 100%;
                 height: auto;
-                position: relative;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
                 padding: 1rem 1.5rem;
                 padding-top: max(1rem, env(safe-area-inset-top));
                 padding-left: max(1.5rem, env(safe-area-inset-left));
@@ -613,6 +616,9 @@
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 0.75rem;
+                z-index: 1000;
+                background: var(--bg-sidebar);
+                border-bottom: 1px solid #e0e0e0;
             }
 
             .sidebar > div:first-child {
@@ -661,7 +667,8 @@
 
             .main-content {
                 margin-left: 0;
-                height: calc(100vh - 100px);
+                padding-top: 100px;
+                height: 100vh;
             }
 
             .gallery-grid {
