@@ -11,13 +11,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Darker+Grotesque:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #e8f4fc;
-            --bg-secondary: #d0ebf7;
-            --bg-sidebar: #b8d4e8;
-            --text-primary: #1a3a4a;
-            --text-secondary: #4a6d7c;
-            --text-muted: #5a7d8c;
-            --accent: #1d6a98;
+            --bg-primary: #ffffff;
+            --bg-secondary: #fafafa;
+            --bg-sidebar: #f5f5f5;
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --text-muted: #7a7a7a;
+            --accent: #2a2a2a;
             --font-display: 'Cormorant Garamond', serif;
             --font-body: 'Darker Grotesque', sans-serif;
             --sidebar-width: 280px;
@@ -27,6 +27,18 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+        }
+
+        *:focus {
+            outline: none !important;
+        }
+
+        button:focus,
+        a:focus,
+        img:focus,
+        video:focus {
+            outline: none !important;
+            box-shadow: none !important;
         }
 
         html, body {
@@ -53,7 +65,7 @@
             min-width: var(--sidebar-width);
             height: 100vh;
             background: var(--bg-sidebar);
-            border-right: 1px solid rgba(45, 138, 184, 0.1);
+            border-right: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -172,6 +184,13 @@
         .gallery-grid {
             column-count: 3;
             column-gap: 0.75rem;
+            /* Fix for layout jumping on load */
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .gallery-grid.loaded {
+            opacity: 1;
         }
 
         .gallery-item {
@@ -182,6 +201,11 @@
             margin-bottom: 0.75rem;
             break-inside: avoid;
             display: block;
+            outline: none;
+        }
+
+        .gallery-item:focus {
+            outline: none;
         }
 
         .gallery-item img {
@@ -189,6 +213,11 @@
             height: auto;
             display: block;
             transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            outline: none;
+        }
+
+        .gallery-item img:focus {
+            outline: none;
         }
 
         .gallery-item:hover img {
@@ -213,6 +242,11 @@
             cursor: pointer;
             pointer-events: auto;
             -webkit-tap-highlight-color: transparent;
+            outline: none;
+        }
+
+        .gallery-video video:focus {
+            outline: none;
         }
 
         .gallery-video:hover video {
@@ -222,43 +256,62 @@
         /* About Panel */
         #about {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: center;
-            padding: 4rem;
-            padding-top: 3rem;
+            padding: 6rem 4rem;
             background: var(--bg-secondary);
             overflow-y: auto;
         }
 
         .about-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5rem;
+            max-width: 1200px;
+            align-items: start;
+        }
+
+        .about-left {
             display: flex;
-            align-items: center;
-            gap: 4rem;
-            max-width: 1000px;
+            flex-direction: column;
+            gap: 2rem;
         }
 
         .about-photo {
-            flex-shrink: 0;
+            width: 100%;
+            position: relative;
         }
 
         .about-photo img {
-            width: 280px;
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+            box-shadow: 0 12px 40px rgba(26, 58, 74, 0.2);
+        }
+
+        .about-featured {
+            width: 100%;
+            margin-top: 2rem;
+        }
+
+        .about-featured img {
+            width: 100%;
             height: auto;
             border-radius: 4px;
             box-shadow: 0 8px 30px rgba(26, 58, 74, 0.15);
         }
 
         .about-content {
-            max-width: 600px;
-            text-align: left;
+            padding-top: 1rem;
         }
 
         .about-content h2 {
             font-family: var(--font-display);
-            font-size: 3rem;
+            font-size: 3.5rem;
             font-weight: 400;
-            margin-bottom: 2rem;
+            margin-bottom: 2.5rem;
             letter-spacing: -0.01em;
+            line-height: 1.1;
         }
 
         .about-content p {
@@ -266,12 +319,12 @@
             font-weight: 400;
             line-height: 1.9;
             color: var(--text-primary);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.8rem;
         }
 
         .about-content .secret-text {
             font-size: 0.85rem;
-            color: var(--bg-secondary);
+            color: #fafafa;
             transition: color 0.5s ease;
             cursor: default;
             user-select: none;
@@ -279,106 +332,117 @@
         }
 
         .about-content .secret-text:hover {
-            color: var(--accent);
+            color: var(--text-primary);
         }
 
         /* Work Panel */
         #work {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
             padding: 4rem 2rem;
             overflow-y: auto;
             background: var(--bg-primary);
         }
 
         .work-container {
-            max-width: 1200px;
-            margin: 0 auto;
+            max-width: 1100px;
+            width: 100%;
         }
 
         .work-container h2 {
             font-family: var(--font-display);
-            font-size: 3rem;
+            font-size: 2.5rem;
             font-weight: 400;
-            margin-bottom: 3rem;
+            margin-bottom: 2rem;
             letter-spacing: -0.01em;
             text-align: center;
         }
 
         .work-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 2rem;
         }
 
         .work-item {
-            background: var(--bg-secondary);
+            background: #fff;
+            border: 1px solid rgba(26, 58, 74, 0.08);
             border-radius: 8px;
             overflow: hidden;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
-            cursor: pointer;
         }
 
         .work-item:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(26, 58, 74, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(26, 58, 74, 0.12);
+        }
+
+        .work-item-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(26, 58, 74, 0.08);
+        }
+
+        .work-item-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--bg-sidebar);
+            overflow: hidden;
+        }
+
+        .work-item-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .work-item-username {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-primary);
         }
 
         .work-item-image {
             width: 100%;
-            aspect-ratio: 16/9;
+            aspect-ratio: 1;
             overflow: hidden;
             background: var(--bg-sidebar);
+            position: relative;
         }
 
-        .work-item-image img {
+        .work-item-image img,
+        .work-item-image video {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: transform 0.5s ease;
-        }
-
-        .work-item:hover .work-item-image img {
-            transform: scale(1.05);
+            display: block;
         }
 
         .work-item-content {
-            padding: 1.5rem;
+            padding: 1rem;
         }
 
-        .work-item-title {
-            font-family: var(--font-display);
-            font-size: 1.5rem;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
+        .work-item-caption {
+            font-size: 0.95rem;
+            line-height: 1.5;
             color: var(--text-primary);
-        }
-
-        .work-item-role {
-            font-size: 0.9rem;
-            font-weight: 400;
-            color: var(--text-muted);
-            margin-bottom: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        .work-item-description {
-            font-size: 1rem;
-            line-height: 1.6;
-            color: var(--text-secondary);
-            margin-bottom: 1rem;
+            margin-bottom: 0.5rem;
         }
 
         .work-item-link {
             display: inline-block;
             font-size: 0.9rem;
-            color: var(--accent);
+            color: var(--text-muted);
             text-decoration: none;
-            font-weight: 500;
             transition: color 0.3s ease;
         }
 
         .work-item-link:hover {
-            color: var(--text-primary);
+            color: var(--accent);
         }
 
         /* Contact Panel */
@@ -602,34 +666,42 @@
             }
 
             #about, #contact {
-                padding: 1.5rem 0.5rem 2rem 0.5rem;
-                min-height: 80vh;
-                box-sizing: border-box;
+                padding: 2rem 1.5rem;
+                min-height: auto;
             }
 
             .about-wrapper {
-                flex-direction: column;
-                gap: 1.2rem;
-                text-align: center;
-                align-items: center;
+                grid-template-columns: 1fr;
+                gap: 2rem;
             }
 
-            .about-photo {
-                padding-top: 0.2rem;
+            .about-left {
+                gap: 1.5rem;
             }
 
             .about-photo img {
-                width: 120px;
-                max-width: 80vw;
-                height: auto;
-                border-radius: 4px;
-                box-shadow: 0 4px 12px rgba(26, 58, 74, 0.15);
+                width: 180px;
+                max-width: 60vw;
                 margin: 0 auto;
                 display: block;
             }
 
+            .about-featured {
+                margin-top: 1rem;
+            }
+
             .about-content {
                 text-align: center;
+                padding-top: 0;
+            }
+
+            .about-content h2 {
+                font-size: 2.5rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .about-content p {
+                font-size: 1.05rem;
             }
 
             .about-content h2,
@@ -641,13 +713,18 @@
                 padding: 2rem 1rem;
             }
 
+            .work-container {
+                max-width: 100%;
+            }
+
             .work-container h2 {
                 font-size: 2rem;
-                margin-bottom: 2rem;
+                margin-bottom: 1.5rem;
             }
 
             .work-grid {
                 grid-template-columns: 1fr;
+                gap: 1.5rem;
             }
         }
     </style>
@@ -702,9 +779,9 @@
                         <video src="CLIPS/AWAGA_1.mp4" muted loop playsinline preload="metadata"></video>
                     </div>
                     <div class="gallery-item"><img src="IMAGES/000000410022.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/5.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/2.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000021230009.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000050430035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item gallery-video">
                         <video src="CLIPS/SAS_1.mp4" muted loop playsinline preload="metadata"></video>
                     </div>
@@ -716,9 +793,9 @@
                     </div>
                     <div class="gallery-item"><img src="IMAGES/000000410013.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/002678200019.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000050430017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000027940006.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item gallery-video">
-                        <video src="CLIPS/abott_1.mp4" muted loop playsinline preload="metadata"></video>
+                        <video src="CLIPS/abott_2.mp4" muted loop playsinline preload="metadata"></video>
                     </div>
                     <div class="gallery-item"><img src="IMAGES/000034470019.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000034470017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
@@ -727,27 +804,27 @@
                         <video src="CLIPS/Icefileds_1.mp4" muted loop playsinline preload="metadata"></video>
                     </div>
                     <div class="gallery-item"><img src="IMAGES/000027940020.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000027940006.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000050430017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000088690018.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item gallery-video">
-                        <video src="CLIPS/Fire_lookout_2.mp4" muted loop playsinline preload="metadata"></video>
+                        <video src="CLIPS/abott_1.mp4" muted loop playsinline preload="metadata"></video>
                     </div>
                     <div class="gallery-item"><img src="IMAGES/000027930016.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000034430022.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000027940011.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/5.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000050430035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000027940035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000034450021.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000000410028.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item gallery-video">
-                        <video src="CLIPS/abott_2.mp4" muted loop playsinline preload="metadata"></video>
+                        <video src="CLIPS/Fire_lookout_2.mp4" muted loop playsinline preload="metadata"></video>
                     </div>
-                    <div class="gallery-item"><img src="IMAGES/000027940021.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000000420033.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000034470023.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item gallery-video">
                         <video src="CLIPS/Icefileds_2.mp4" muted loop playsinline preload="metadata"></video>
                     </div>
-                    <div class="gallery-item"><img src="IMAGES/000027940035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
+                    <div class="gallery-item"><img src="IMAGES/000027940021.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000007060035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item"><img src="IMAGES/000034470027.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
                     <div class="gallery-item gallery-video">
@@ -762,21 +839,51 @@
             <section id="work" class="panel">
                 <div class="work-container">
                     <h2>Work</h2>
+                    
                     <div class="work-grid">
-                        <!-- Swich x Audio Technica Project -->
-                        <div class="work-item" onclick="window.open('https://www.instagram.com/p/C3i_pjXPkxk/', '_blank')">
-                            <div class="work-item-image">
-                                <img src="IMAGES/1.jpg" alt="S'WICH Bondi Beach - Audio Technica Collaboration">
+                        <!-- S'WICH X AUDIO-TECHNICA -->
+                        <a href="https://www.instagram.com/p/C3i_pjXPkxk/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                            <div class="work-item">
+                                <div class="work-item-header">
+                                    <div class="work-item-avatar">
+                                        <img src="IMAGES/WORK/SWICH_LOGO.jpg" alt="S'WICH Bondi Beach">
+                                    </div>
+                                    <div class="work-item-username">@eatswich</div>
+                                </div>
+                                <div class="work-item-image">
+                                    <video class="work-video" src="CLIPS/work/SWICHXAUDIOTECHNICA.mp4" muted loop playsinline preload="metadata"></video>
+                                </div>
+                                <div class="work-item-content">
+                                    <p class="work-item-caption">
+                                        <strong>S'WICH X AUDIO-TECHNICA</strong><br>
+                                        Video production for a promotional campaign between S'WICH, a restaurant in Bondi Beach, and Audio-Technica.
+                                    </p>
+                                    <span class="work-item-link">View on Instagram →</span>
+                                </div>
                             </div>
-                            <div class="work-item-content">
-                                <h3 class="work-item-title">S'WICH X AUDIO TECHNICA</h3>
-                                <div class="work-item-role">Video Production Assistant</div>
-                                <p class="work-item-description">
-                                    Assisted in a promotional video shoot for Swich, a sandwich shop in Bondi Beach, in collaboration with Audio Technica for a giveaway campaign.
-                                </p>
-                                <a href="https://www.instagram.com/p/C3i_pjXPkxk/" target="_blank" class="work-item-link">View on Instagram →</a>
+                        </a>
+
+                        <!-- Dirty Aesthetic - Corduroy -->
+                        <a href="https://www.instagram.com/p/DS8MzEnElmV/" target="_blank" rel="noopener noreferrer" style="text-decoration: none;">
+                            <div class="work-item">
+                                <div class="work-item-header">
+                                    <div class="work-item-avatar">
+                                        <img src="IMAGES/WORK/DIRTYAESHETIC_LOGO.jpg" alt="Dirty Aesthetic">
+                                    </div>
+                                    <div class="work-item-username">@dirtyaestheticband</div>
+                                </div>
+                                <div class="work-item-image">
+                                    <video class="work-video" src="CLIPS/work/CORDUROY_CLIPS.mp4" muted loop playsinline preload="metadata"></video>
+                                </div>
+                                <div class="work-item-content">
+                                    <p class="work-item-caption">
+                                        <strong>CORDUROY — LIVE AT THE ROXY</strong><br>
+                                        Music video edited from live performance footage of Dirty Aesthetic's single "Corduroy" at The Roxy.
+                                    </p>
+                                    <span class="work-item-link">View on Instagram →</span>
+                                </div>
                             </div>
-                        </div>
+                        </a>
                     </div>
                 </div>
             </section>
@@ -784,8 +891,10 @@
             <!-- About Panel -->
             <section id="about" class="panel">
                 <div class="about-wrapper">
-                    <div class="about-photo">
-                        <img src="ABOUT.jpg" alt="Jacob Nadal">
+                    <div class="about-left">
+                        <div class="about-photo">
+                            <img src="ABOUT.jpg" alt="Jacob Nadal">
+                        </div>
                     </div>
                     <div class="about-content">
                         <h2>About</h2>
@@ -820,6 +929,41 @@
     </div>
 
     <script>
+        // Remove any auto-focus on page load
+        window.addEventListener('load', () => {
+            if (document.activeElement) {
+                document.activeElement.blur();
+            }
+        });
+
+        // Fix gallery layout jump - wait for images to load
+        const galleryGrid = document.querySelector('.gallery-grid');
+        const galleryImages = galleryGrid.querySelectorAll('img');
+        let imagesLoaded = 0;
+        
+        function checkAllImagesLoaded() {
+            imagesLoaded++;
+            if (imagesLoaded >= galleryImages.length) {
+                setTimeout(() => {
+                    galleryGrid.classList.add('loaded');
+                }, 100);
+            }
+        }
+
+        galleryImages.forEach(img => {
+            if (img.complete) {
+                checkAllImagesLoaded();
+            } else {
+                img.addEventListener('load', checkAllImagesLoaded);
+                img.addEventListener('error', checkAllImagesLoaded);
+            }
+        });
+
+        // Fallback: show after 2 seconds regardless
+        setTimeout(() => {
+            galleryGrid.classList.add('loaded');
+        }, 2000);
+
         // Page loader
         window.addEventListener('load', () => {
             setTimeout(() => {
@@ -827,45 +971,58 @@
             }, 800);
         });
 
-        // Panel navigation
+        // Panel navigation with URL hash support
         const navLinks = document.querySelectorAll('.nav-links a');
         const panels = document.querySelectorAll('.panel');
 
+        function showPanel(targetPanel) {
+            // Update active nav link
+            navLinks.forEach(l => l.classList.remove('active'));
+            const activeLink = document.querySelector(`[data-panel="${targetPanel}"]`);
+            if (activeLink) activeLink.classList.add('active');
+
+            // Update active panel
+            panels.forEach(panel => {
+                panel.classList.remove('active');
+                if (panel.id === targetPanel) {
+                    panel.classList.add('active');
+                    
+                    // Auto-play work videos when Work panel is shown
+                    if (targetPanel === 'work') {
+                        const workVideos = document.querySelectorAll('#work .work-video');
+                        workVideos.forEach(video => {
+                            setTimeout(() => video.play().catch(() => {}), 100);
+                        });
+                    }
+                }
+            });
+        }
+
+        // Handle nav link clicks
         navLinks.forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const targetPanel = link.getAttribute('data-panel');
-
-                // Update active nav link
-                navLinks.forEach(l => l.classList.remove('active'));
-                link.classList.add('active');
-
-                // Update active panel
-                panels.forEach(panel => {
-                    panel.classList.remove('active');
-                    if (panel.id === targetPanel) {
-                        panel.classList.add('active');
-                    }
-                });
+                window.location.hash = targetPanel;
+                showPanel(targetPanel);
             });
         });
+
+        // Handle URL hash on load and hash changes
+        function handleHashChange() {
+            const hash = window.location.hash.slice(1) || 'overview';
+            showPanel(hash);
+        }
+
+        window.addEventListener('hashchange', handleHashChange);
+        handleHashChange(); // Run on page load
 
         // Logo click - go back to overview
         const logo = document.querySelector('.logo');
         logo.addEventListener('click', (e) => {
             e.preventDefault();
-            
-            // Update active nav link
-            navLinks.forEach(l => l.classList.remove('active'));
-            document.querySelector('[data-panel="overview"]').classList.add('active');
-            
-            // Show overview panel
-            panels.forEach(panel => {
-                panel.classList.remove('active');
-                if (panel.id === 'overview') {
-                    panel.classList.add('active');
-                }
-            });
+            window.location.hash = 'overview';
+            showPanel('overview');
         });
 
         // Lightbox
@@ -947,6 +1104,35 @@
         // Ensure videos are interactive on iOS
         document.querySelectorAll('.gallery-video').forEach(container => {
             container.style.cursor = 'pointer';
+        });
+
+        // Work videos - unmute on hover, always playing
+        const workVideos = document.querySelectorAll('.work-video');
+        workVideos.forEach(video => {
+            const workItem = video.closest('.work-item');
+            
+            // Ensure video plays when loaded and keeps playing
+            video.addEventListener('loadeddata', () => {
+                video.play().catch(() => {});
+            });
+            
+            // Prevent video from pausing
+            video.addEventListener('pause', () => {
+                video.play().catch(() => {});
+            });
+            
+            // Audio control on hover - don't interrupt playback
+            workItem.addEventListener('mouseenter', () => {
+                video.muted = false;
+                video.volume = 0.7;
+                if (video.paused) {
+                    video.play().catch(() => {});
+                }
+            });
+            
+            workItem.addEventListener('mouseleave', () => {
+                video.muted = true;
+            });
         });
     </script>
 </body>
