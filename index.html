@@ -594,6 +594,29 @@
             }
         }
 
+        @media (max-width: 1024px) {
+            .about-wrapper {
+                grid-template-columns: 1fr;
+                gap: 2.5rem;
+            }
+
+            #about {
+                padding: 4rem 3rem;
+            }
+
+            .about-photo img {
+                width: 280px;
+                max-width: 60vw;
+                margin: 0 auto;
+                display: block;
+            }
+
+            .about-content {
+                text-align: center;
+                padding-top: 0;
+            }
+        }
+
         @media (max-width: 768px) {
             :root {
                 --sidebar-width: 100%;
@@ -674,12 +697,12 @@
             }
 
             .panel {
-                padding-top: 130px;
+                padding-top: var(--mobile-header-height, 130px);
                 padding-bottom: max(3rem, env(safe-area-inset-bottom));
             }
 
             #overview {
-                padding-top: 130px;
+                padding-top: var(--mobile-header-height, 130px);
                 padding-left: 1rem;
                 padding-right: 1rem;
                 padding-bottom: max(6rem, calc(env(safe-area-inset-bottom) + 4rem));
@@ -690,7 +713,7 @@
             }
 
             #about, #contact {
-                padding: 130px 1.5rem 3rem 1.5rem;
+                padding: var(--mobile-header-height, 130px) 1.5rem 3rem 1.5rem;
                 padding-bottom: max(3rem, env(safe-area-inset-bottom));
                 min-height: auto;
             }
@@ -735,7 +758,7 @@
             }
 
             #work {
-                padding: 130px 1rem 6rem 1rem;
+                padding: var(--mobile-header-height, 130px) 1rem 6rem 1rem;
                 padding-bottom: max(6rem, calc(env(safe-area-inset-bottom) + 4rem));
             }
 
@@ -955,11 +978,28 @@
     </div>
 
     <script>
+        // Dynamically measure mobile header height to prevent content overlap
+        function updateHeaderHeight() {
+            const sidebar = document.querySelector('.sidebar');
+            if (window.innerWidth <= 768) {
+                const height = sidebar.offsetHeight + 16;
+                document.documentElement.style.setProperty('--mobile-header-height', height + 'px');
+            } else {
+                document.documentElement.style.removeProperty('--mobile-header-height');
+            }
+        }
+        updateHeaderHeight();
+        window.addEventListener('resize', updateHeaderHeight);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(updateHeaderHeight, 100);
+        });
+
         // Remove any auto-focus on page load
         window.addEventListener('load', () => {
             if (document.activeElement) {
                 document.activeElement.blur();
             }
+            updateHeaderHeight();
         });
 
         // Fix gallery layout jump - wait for images to load
