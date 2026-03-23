@@ -15,6 +15,7 @@ window.GALLERY_MANIFEST = [
     { type: 'image', src: 'IMAGES/04.jpg' },
     { type: 'image', src: 'IMAGES/05.jpg' },
     { type: 'image', src: 'IMAGES/06.jpg' },
+    { type: 'image', src: 'IMAGES/new/ellipsis-room.jpg' },
     { type: 'image', src: 'IMAGES/07.jpg' },
     { type: 'image', src: 'IMAGES/08.jpg' },
     { type: 'image', src: 'IMAGES/10.jpg' },
