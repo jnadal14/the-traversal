@@ -819,69 +819,8 @@
         <main class="main-content">
             <!-- Overview Panel - Gallery -->
             <section id="overview" class="panel active">
-                <div class="gallery-grid">
-                    <!-- 1.jpg first, then videos spaced every 4 items (3 images between each) -->
-                    <div class="gallery-item"><img src="IMAGES/1.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000000410017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000000400017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item gallery-video">
-                        <video src="CLIPS/AWAGA_1.mp4" muted loop playsinline preload="auto"></video>
-                    </div>
-                    <div class="gallery-item"><img src="IMAGES/000000410022.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/5.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/2.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000021230009.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item gallery-video">
-                        <video src="CLIPS/SAS_1.mp4" muted loop playsinline preload="auto"></video>
-                    </div>
-                    <div class="gallery-item"><img src="IMAGES/000034680028.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000034440031.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/3.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item gallery-video">
-                        <video src="CLIPS/Fire_lookout_1.mp4" muted loop playsinline preload="auto"></video>
-                    </div>
-                    <div class="gallery-item"><img src="IMAGES/000000410013.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/002678200019.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000027940006.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item gallery-video">
-                        <video src="CLIPS/abott_2.mp4" muted loop playsinline preload="auto"></video>
-                    </div>
-                    <div class="gallery-item"><img src="IMAGES/000034470019.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000034470017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/4.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item gallery-video">
-                        <video src="CLIPS/Icefileds_1.mp4" muted loop playsinline preload="auto"></video>
-                    </div>
-                    <div class="gallery-item"><img src="IMAGES/000027940020.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000050430017.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000088690018.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item gallery-video">
-                        <video src="CLIPS/abott_1.mp4" muted loop playsinline preload="auto"></video>
-                    </div>
-                    <div class="gallery-item"><img src="IMAGES/000027930016.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000034430022.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000027940011.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000050430035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000027940035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000034450021.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000000410028.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item gallery-video">
-                        <video src="CLIPS/Fire_lookout_2.mp4" muted loop playsinline preload="auto"></video>
-                    </div>
-                    <div class="gallery-item"><img src="IMAGES/000000420033.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000034470023.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item gallery-video">
-                        <video src="CLIPS/Icefileds_2.mp4" muted loop playsinline preload="auto"></video>
-                    </div>
-                    <div class="gallery-item"><img src="IMAGES/000027940021.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000007060035.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000034470027.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item gallery-video">
-                        <video src="CLIPS/SAS_2.mp4" muted loop playsinline preload="auto"></video>
-                    </div>
-                    <div class="gallery-item"><img src="IMAGES/000021240018.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                    <div class="gallery-item"><img src="IMAGES/000072930031-2.jpg" alt="The Traversal - Film Photography" loading="lazy"></div>
-                </div>
+                <!-- Gallery items are built from gallery-manifest.js (edit that file to add/reorder photos & videos) -->
+                <div class="gallery-grid" id="gallery-grid"></div>
             </section>
 
             <!-- Work Panel -->
@@ -900,7 +839,7 @@
                                     <div class="work-item-username">@eatswich</div>
                                 </div>
                                 <div class="work-item-image">
-                                    <video class="work-video" src="CLIPS/WORK/SWICHXAUDIOTECHNICA.mp4" muted loop playsinline preload="auto"></video>
+                                    <video class="work-video" src="CLIPS/WORK/SWICHXAUDIOTECHNICA.mp4" muted loop playsinline preload="none"></video>
                                 </div>
                                 <div class="work-item-content">
                                     <p class="work-item-caption">
@@ -922,7 +861,7 @@
                                     <div class="work-item-username">@dirtyaestheticband</div>
                                 </div>
                                 <div class="work-item-image">
-                                    <video class="work-video" src="CLIPS/WORK/CORDUROY_CLIPS.mp4" muted loop playsinline preload="auto"></video>
+                                    <video class="work-video" src="CLIPS/WORK/CORDUROY_CLIPS.mp4" muted loop playsinline preload="none"></video>
                                 </div>
                                 <div class="work-item-content">
                                     <p class="work-item-caption">
@@ -977,7 +916,43 @@
         <img src="" alt="Enlarged view" id="lightboxImg">
     </div>
 
+    <script src="gallery-manifest.js"></script>
     <script>
+        // Build overview gallery from GALLERY_MANIFEST in gallery-manifest.js
+        (function buildGalleryFromManifest() {
+            const grid = document.getElementById('gallery-grid');
+            const items = window.GALLERY_MANIFEST || [];
+            if (!grid || !items.length) return;
+            const defaultAlt = 'The Traversal - Film Photography';
+            const frag = document.createDocumentFragment();
+            let imageIndex = 0;
+            items.forEach(entry => {
+                if (entry.type === 'image' && entry.src) {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'gallery-item';
+                    const img = document.createElement('img');
+                    img.src = entry.src;
+                    img.alt = entry.alt || defaultAlt;
+                    img.loading = imageIndex < 4 ? 'eager' : 'lazy';
+                    imageIndex++;
+                    wrap.appendChild(img);
+                    frag.appendChild(wrap);
+                } else if (entry.type === 'video' && entry.src) {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'gallery-item gallery-video';
+                    const video = document.createElement('video');
+                    video.dataset.gallerySrc = entry.src;
+                    video.muted = true;
+                    video.loop = true;
+                    video.setAttribute('playsinline', '');
+                    video.setAttribute('preload', 'none');
+                    wrap.appendChild(video);
+                    frag.appendChild(wrap);
+                }
+            });
+            grid.appendChild(frag);
+        })();
+
         // Dynamically measure mobile header height to prevent content overlap
         function updateHeaderHeight() {
             const sidebar = document.querySelector('.sidebar');
@@ -994,47 +969,29 @@
             setTimeout(updateHeaderHeight, 100);
         });
 
-        // Remove any auto-focus on page load
-        window.addEventListener('load', () => {
-            if (document.activeElement) {
-                document.activeElement.blur();
-            }
-            updateHeaderHeight();
-        });
-
-        // Fix gallery layout jump - wait for images to load
-        const galleryGrid = document.querySelector('.gallery-grid');
-        const galleryImages = galleryGrid.querySelectorAll('img');
-        let imagesLoaded = 0;
-        
-        function checkAllImagesLoaded() {
-            imagesLoaded++;
-            if (imagesLoaded >= galleryImages.length) {
-                setTimeout(() => {
+        // Gallery visible immediately — waiting for every lazy image never completes until full scroll
+        const galleryGrid = document.getElementById('gallery-grid');
+        if (galleryGrid) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
                     galleryGrid.classList.add('loaded');
-                }, 100);
-            }
+                });
+            });
         }
 
-        galleryImages.forEach(img => {
-            if (img.complete) {
-                checkAllImagesLoaded();
-            } else {
-                img.addEventListener('load', checkAllImagesLoaded);
-                img.addEventListener('error', checkAllImagesLoaded);
-            }
-        });
-
-        // Fallback: show after 2 seconds regardless
-        setTimeout(() => {
-            galleryGrid.classList.add('loaded');
-        }, 2000);
-
-        // Page loader
+        // Page loader: never block more than ~3s (window.load can wait on huge assets)
+        const pageLoaderEl = document.querySelector('.page-loader');
+        let pageLoaderHidden = false;
+        function hidePageLoader() {
+            if (pageLoaderHidden || !pageLoaderEl) return;
+            pageLoaderHidden = true;
+            pageLoaderEl.classList.add('loaded');
+        }
+        setTimeout(hidePageLoader, 2800);
         window.addEventListener('load', () => {
-            setTimeout(() => {
-                document.querySelector('.page-loader').classList.add('loaded');
-            }, 800);
+            if (document.activeElement) document.activeElement.blur();
+            updateHeaderHeight();
+            setTimeout(hidePageLoader, 120);
         });
 
         // Panel navigation with URL hash support
@@ -1053,10 +1010,10 @@
                 if (panel.id === targetPanel) {
                     panel.classList.add('active');
                     
-                    // Auto-play work videos when Work panel is shown
                     if (targetPanel === 'work') {
                         const workVideos = document.querySelectorAll('#work .work-video');
                         workVideos.forEach(video => {
+                            if (video.readyState === 0) video.load();
                             setTimeout(() => video.play().catch(() => {}), 100);
                         });
                     }
@@ -1094,7 +1051,7 @@
         // Lightbox
         const lightbox = document.getElementById('lightbox');
         const lightboxImg = document.getElementById('lightboxImg');
-        const galleryItems = document.querySelectorAll('.gallery-item img');
+        const galleryItems = document.querySelectorAll('#gallery-grid .gallery-item img');
 
         galleryItems.forEach(img => {
             img.addEventListener('click', () => {
@@ -1111,10 +1068,12 @@
             if (e.key === 'Escape') closeLightbox();
         });
 
-        // Robust video loading and autoplay
-        const videos = document.querySelectorAll('.gallery-video video');
+        // Gallery videos: defer src until near viewport (saves tens of MB on first paint)
+        const videos = document.querySelectorAll('#gallery-grid .gallery-video video');
+        const overviewPanel = document.getElementById('overview');
 
         function forceFirstFrame(video) {
+            if (!video.src) return;
             if (video.readyState >= 2) {
                 video.currentTime = 0.001;
                 return;
@@ -1122,25 +1081,44 @@
             video.addEventListener('loadeddata', () => {
                 video.currentTime = 0.001;
             }, { once: true });
-
             if (video.readyState === 0) {
                 video.load();
             }
         }
 
-        videos.forEach(video => {
+        function attachGalleryVideoWhenNearViewport(video) {
+            const src = video.dataset.gallerySrc;
+            if (!src || video.src) return;
+            video.src = src;
+            video.removeAttribute('data-gallery-src');
+            video.setAttribute('preload', 'metadata');
             forceFirstFrame(video);
-
             video.addEventListener('error', () => {
                 setTimeout(() => {
                     video.load();
                     forceFirstFrame(video);
                 }, 2000);
             }, { once: true });
-        });
+        }
+
+        if (overviewPanel && videos.length) {
+            const videoObserver = new IntersectionObserver((entries) => {
+                entries.forEach((ent) => {
+                    if (ent.isIntersecting) {
+                        attachGalleryVideoWhenNearViewport(ent.target);
+                    }
+                });
+            }, {
+                root: overviewPanel,
+                rootMargin: '80% 0px',
+                threshold: 0
+            });
+            videos.forEach((v) => videoObserver.observe(v));
+        }
 
         function playVisibleVideos() {
             videos.forEach(video => {
+                if (!video.src) return;
                 const rect = video.getBoundingClientRect();
                 const inView = rect.top < window.innerHeight && rect.bottom > 0;
                 if (inView) {
@@ -1160,8 +1138,7 @@
             });
         }
 
-        const overviewPanel = document.getElementById('overview');
-        overviewPanel.addEventListener('scroll', playVisibleVideos);
+        if (overviewPanel) overviewPanel.addEventListener('scroll', playVisibleVideos);
 
         setTimeout(playVisibleVideos, 500);
         setTimeout(playVisibleVideos, 1500);
@@ -1229,7 +1206,7 @@
         });
         
         // Ensure videos are interactive on iOS
-        document.querySelectorAll('.gallery-video').forEach(container => {
+        document.querySelectorAll('#gallery-grid .gallery-video').forEach(container => {
             container.style.cursor = 'pointer';
         });
 
@@ -1286,10 +1263,6 @@
             });
         });
         workObserver.observe(workPanel, { attributes: true, attributeFilter: ['class'] });
-        
-        // Also try to initialize on any user interaction
-        document.addEventListener('click', initWorkVideos, { once: false });
-        document.addEventListener('touchstart', initWorkVideos, { once: false });
     </script>
 </body>
 </html>

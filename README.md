@@ -4,7 +4,7 @@ A film photography portfolio by Jacob Nadal, documenting landscapes and quiet mo
 
 🌐 **Live site**: [jnadal14.github.io/the-traversal](https://jnadal14.github.io/the-traversal)
 
-![The Traversal](IMAGES/1.jpg)
+![The Traversal](IMAGES/01.jpg)
 
 ## About
 
@@ -13,7 +13,7 @@ The Traversal is an ongoing visual journey, an exploration of light, landscape, 
 ## Features
 
 - **Masonry Gallery**: Responsive 3-column layout that adapts to all screen sizes
-- **Video Integration**: 10 looping video clips interspersed throughout the gallery
+- **Video Integration**: 9 looping video clips interspersed throughout the gallery
 - **Lightbox Viewer**: Click any image to view in full resolution
 - **Fullscreen Video**: Click videos to enter fullscreen with audio
 - **Minimal Design**: Clean, distraction-free presentation focused on the work
@@ -31,23 +31,26 @@ The Traversal is an ongoing visual journey, an exploration of light, landscape, 
 ```
 the-traversal/
 ├── index.html          # Main website (single-page app)
+├── gallery-manifest.js # Overview gallery order (images + videos) — edit to add/reorder
 ├── README.md           # This file
 ├── LICENSE             # MIT License
-├── CLIPS/              # Video files (10 clips)
-│   ├── AWAGA_1.mov
-│   ├── AWAGA_2.mov
-│   ├── Fire_lookout_1.mp4
-│   ├── Fire_lookout_2.mp4
-│   ├── Icefileds_1.mov
-│   ├── Icefileds_2.mov
-│   ├── SAS_1.mov
-│   ├── SAS_2.mov
-│   ├── abott_1.mp4
-│   └── abott_2.mp4
-└── IMAGES/             # Photography (32 images)
-    ├── 1.jpg - 5.jpg
-    └── [film scans...]
+├── CLIPS/              # Gallery videos (order-prefixed) + WORK subfolder
+│   ├── 01_AWAGA_1.mp4 … 09_SAS_2.mp4
+│   └── WORK/           # Work panel videos
+└── IMAGES/             # Photography (numbered gallery files + new/ + WORK/)
+    ├── new/            # Drop new photos here, then list paths in gallery-manifest.js
+    └── WORK/           # Work panel images
 ```
+
+### Adding photos to the gallery
+
+Put new files in `IMAGES/new/` with **URL-safe names** (e.g. `my-shot.jpg`, no spaces). Edit **`gallery-manifest.js`** and add a line where you want the image:
+
+`{ type: 'image', src: 'IMAGES/new/my-shot.jpg' },`
+
+After adding large JPEGs, run **`./scripts/optimize-gallery-images.sh`** so pages load in a few seconds on real networks.
+
+Reorder by moving lines. Videos use `{ type: 'video', src: 'CLIPS/...' }`.
 
 ## Local Development
 
