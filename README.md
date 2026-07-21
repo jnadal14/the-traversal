@@ -30,7 +30,8 @@ The Traversal is an ongoing visual journey, an exploration of light, landscape, 
 
 ```
 the-traversal/
-├── index.html          # Main website (single-page app)
+├── index.html          # Landing page (infinite-scroll intro; click to enter)
+├── mosaic.html         # Main website / mosaic (single-page app)
 ├── gallery-manifest.js # Overview gallery order (images + videos) — edit to add/reorder
 ├── README.md           # This file
 ├── LICENSE             # MIT License

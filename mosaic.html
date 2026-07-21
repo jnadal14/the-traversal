@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Jacob Nadal — The Traversal</title>
+    <link rel="icon" type="image/jpeg" href="FAVICON.jpg">
+    <link rel="apple-touch-icon" href="FAVICON.jpg">
+    <link rel="prefetch" href="index.html">
+    <link rel="prefetch" href="CLIPS/05_Icefileds_1.mp4" as="video">
+    <link rel="preload" href="IMAGES/01.jpg" as="image">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Darker+Grotesque:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #fafafa;
+            --text-primary: #1a1a1a;
+            --text-muted: #7a7a7a;
+            --accent: #1a1a1a;
+            --font-display: 'Cormorant Garamond', serif;
+            --font-body: 'Darker Grotesque', sans-serif;
+            --gap: 0.5rem;
+            --nav-clearance: 6rem;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        *:focus { outline: none !important; }
+        button:focus, a:focus, img:focus, video:focus { outline: none !important; box-shadow: none !important; }
+
+        html, body { height: 100%; overflow: hidden; }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Short entry loader — matches landing veil so the handoff stays calm */
+        .mosaic-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0a0a0a;
+            transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.65s;
+        }
+
+        .mosaic-loader.done {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .mosaic-loader-text {
+            font-family: var(--font-display);
+            font-size: 1.15rem;
+            font-weight: 400;
+            letter-spacing: 0.18em;
+            color: rgba(245, 245, 240, 0.85);
+            opacity: 0.55;
+            animation: mosaicPulse 1.6s ease-in-out infinite;
+        }
+
+        @keyframes mosaicPulse {
+            0%, 100% { opacity: 0.35; }
+            50% { opacity: 0.9; }
+        }
+
+        body.is-loading {
+            background: #0a0a0a;
+        }
+
+        body.is-loading .main-content,
+        body.is-loading .bottom-nav {
+            opacity: 0;
+        }
+
+        body:not(.is-loading) .main-content {
+            opacity: 1;
+            transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.05s;
+        }
+
+        body.is-loading .bottom-nav {
+            transition: none;
+        }
+
+        /* ---------- Always-on mosaic ---------- */
+        .main-content {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            height: 100svh;
+            opacity: 0;
+        }
+
+        #overview {
+            position: absolute;
+            inset: 0;
+            padding: var(--gap);
+            padding-bottom: calc(var(--nav-clearance) + env(safe-area-inset-bottom));
+            padding-top: max(var(--gap), env(safe-area-inset-top));
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            background: var(--bg-primary);
+        }
+
+        .gallery-grid {
+            column-count: 3;
+            column-gap: var(--gap);
+        }
+
+        .gallery-item {
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            border-radius: 2px;
+            margin-bottom: var(--gap);
+            break-inside: avoid;
+            display: block;
+            background: #eee;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .gallery-item:hover img { transform: scale(1.04); }
+
+        .gallery-video { break-inside: avoid; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+        .gallery-video video {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            cursor: pointer;
+            background: #1a1a1a;
+            min-height: 120px;
+        }
+
+        .gallery-video:hover video { transform: scale(1.04); }
+
+        /* ---------- About / Contact sheets (over mosaic) ---------- */
+        /* pointer-events: none on the shell so wheel/touch still scrolls the mosaic */
+        .sheet {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: clamp(1.25rem, 4vw, 3rem);
+            padding-bottom: calc(var(--nav-clearance) + 0.5rem);
+            padding-top: max(1.25rem, env(safe-area-inset-top));
+            pointer-events: none;
+            visibility: hidden;
+            transition: visibility 0s linear 0.7s;
+        }
+
+        .sheet::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(250, 250, 248, 0.22);
+            opacity: 0;
+            transition: opacity 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .sheet.open {
+            visibility: visible;
+            transition: visibility 0s linear 0s;
+        }
+
+        .sheet.open::before { opacity: 1; }
+
+        .sheet-card {
+            position: relative;
+            pointer-events: auto;
+            width: min(920px, 100%);
+            max-height: min(78vh, 780px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            background: rgba(255, 255, 255, 0.88);
+            -webkit-backdrop-filter: blur(22px) saturate(1.2);
+            backdrop-filter: blur(22px) saturate(1.2);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 18px;
+            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.16);
+            padding: clamp(1.75rem, 4vw, 3rem);
+            opacity: 0;
+            transform: translateY(36px) scale(0.96);
+            transition:
+                opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform;
+        }
+
+        .sheet.open .sheet-card {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* Soft content fade-up once the card is in (delay only on open) */
+        .sheet-card .about-wrapper,
+        .sheet-card .contact-content {
+            opacity: 0;
+            transform: translateY(14px);
+            transition:
+                opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .sheet.open .sheet-card .about-wrapper,
+        .sheet.open .sheet-card .contact-content {
+            opacity: 1;
+            transform: translateY(0);
+            transition:
+                opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1) 0.18s,
+                transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.18s;
+        }
+
+        .sheet-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-family: var(--font-body);
+            font-size: 0.8rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.4rem 0.5rem;
+            transition: color 0.25s ease;
+        }
+
+        .sheet-close:hover { color: var(--text-primary); }
+
+        .about-wrapper {
+            display: grid;
+            grid-template-columns: minmax(140px, 280px) 1fr;
+            gap: clamp(1.5rem, 4vw, 2.75rem);
+            align-items: start;
+        }
+
+        .about-photo img {
+            width: 100%;
+            height: auto;
+            border-radius: 6px;
+            display: block;
+        }
+
+        .about-content h2,
+        .contact-content h2 {
+            font-family: var(--font-display);
+            font-size: clamp(2.2rem, 4.5vw, 3.2rem);
+            font-weight: 400;
+            margin-bottom: 1.4rem;
+            letter-spacing: -0.01em;
+            line-height: 1.1;
+        }
+
+        .about-content p {
+            font-size: clamp(1.05rem, 1.4vw, 1.15rem);
+            font-weight: 400;
+            line-height: 1.85;
+            margin-bottom: 1.2rem;
+        }
+
+        .about-content .secret-text {
+            font-size: 0.85rem;
+            color: transparent;
+            transition: color 0.5s ease;
+            cursor: default;
+            user-select: none;
+            margin-top: 1.5rem;
+            margin-bottom: 0;
+        }
+
+        .about-content .secret-text:hover { color: var(--text-primary); }
+
+        .contact-content { text-align: left; max-width: 28rem; }
+
+        .contact-content .email {
+            font-size: clamp(1.2rem, 2.5vw, 1.45rem);
+            font-weight: 400;
+            color: var(--text-primary);
+            text-decoration: none;
+            position: relative;
+            display: inline-block;
+        }
+
+        .contact-content .email::after {
+            content: '';
+            position: absolute;
+            bottom: -4px; left: 0;
+            width: 100%; height: 1px;
+            background: var(--accent);
+            transform: scaleX(0);
+            transform-origin: right;
+            transition: transform 0.4s ease;
+        }
+
+        .contact-content .email:hover::after {
+            transform: scaleX(1);
+            transform-origin: left;
+        }
+
+        .contact-location {
+            margin-top: 1.5rem;
+            font-size: 1rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .contact-social {
+            margin-top: 2rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        .contact-social:hover { color: var(--accent); }
+
+        /* ---------- Subtle floating bottom nav ---------- */
+        .bottom-nav {
+            position: fixed;
+            left: 50%;
+            bottom: max(1rem, env(safe-area-inset-bottom));
+            transform: translateX(-50%);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: clamp(0.75rem, 2vw, 1.25rem);
+            padding: 0.55rem clamp(0.9rem, 2vw, 1.4rem);
+            max-width: calc(100vw - 1.5rem);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.6);
+            -webkit-backdrop-filter: blur(16px) saturate(1.3);
+            backdrop-filter: blur(16px) saturate(1.3);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 6px 28px rgba(0, 0, 0, 0.12);
+            opacity: 0.72;
+            transition: opacity 0.35s ease, transform 0.35s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .bottom-nav:hover, .bottom-nav:focus-within { opacity: 1; }
+
+        .nav-home {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-family: var(--font-display);
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: var(--text-primary);
+            text-decoration: none;
+            white-space: nowrap;
+            transition: opacity 0.25s ease;
+        }
+
+        .nav-home:hover { opacity: 0.7; }
+
+        .nav-home-icon {
+            width: 1.05rem;
+            height: 1.05rem;
+            flex-shrink: 0;
+        }
+
+        .nav-divider { width: 1px; height: 18px; background: rgba(0, 0, 0, 0.14); }
+
+        .nav-links {
+            list-style: none;
+            display: flex;
+            align-items: center;
+            gap: clamp(0.7rem, 2vw, 1.1rem);
+        }
+
+        .nav-links a {
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 0.15rem 0;
+            position: relative;
+            white-space: nowrap;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover { color: var(--text-primary); }
+        .nav-links a.active { color: var(--text-primary); font-weight: 600; }
+
+        .nav-links a.active::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0; bottom: -3px;
+            height: 2px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        /* ---------- Lightbox ---------- */
+        .lightbox {
+            position: fixed; inset: 0;
+            background: rgba(15, 15, 15, 0.95);
+            z-index: 2000;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+            cursor: zoom-out;
+        }
+        .lightbox.active { opacity: 1; visibility: visible; }
+        .lightbox img { max-width: 92vw; max-height: 92vh; object-fit: contain; transform: scale(0.96); transition: transform 0.4s ease; }
+        .lightbox.active img { transform: scale(1); }
+        .lightbox-close {
+            position: absolute;
+            top: max(1.5rem, env(safe-area-inset-top));
+            right: 1.5rem;
+            font-size: 0.9rem; letter-spacing: 0.1em;
+            color: rgba(255, 255, 255, 0.7);
+            background: none; border: none; cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        .lightbox-close:hover { color: #fff; }
+
+        /* ---------- Responsive ---------- */
+        @media (min-width: 1600px) { .gallery-grid { column-count: 4; } }
+
+        @media (max-width: 1000px) {
+            .gallery-grid { column-count: 2; }
+        }
+
+        @media (max-width: 720px) {
+            .about-wrapper { grid-template-columns: 1fr; }
+            .about-photo img { width: min(220px, 55vw); margin: 0 auto; display: block; }
+            .about-content { text-align: center; }
+            .sheet-card {
+                max-height: min(72vh, 680px);
+                border-radius: 14px;
+            }
+        }
+
+        @media (max-width: 520px) {
+            :root { --gap: 0.35rem; --nav-clearance: 5.5rem; }
+            .gallery-grid { column-count: 1; }
+            .nav-home-label, .nav-divider { display: none; }
+            .nav-links { gap: 1rem; }
+            .nav-links a { font-size: 0.9rem; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .gallery-item img, .gallery-video video,
+            .sheet, .sheet::before, .sheet-card,
+            .sheet-card .about-wrapper,
+            .sheet-card .contact-content,
+            .mosaic-loader,
+            body:not(.is-loading) .main-content,
+            body:not(.is-loading) .bottom-nav { transition: none !important; }
+            .mosaic-loader-text { animation: none; opacity: 0.7; }
+            .gallery-item:hover img, .gallery-video:hover video { transform: none; }
+            .sheet-card,
+            .sheet.open .sheet-card,
+            .sheet-card .about-wrapper,
+            .sheet-card .contact-content,
+            .sheet.open .sheet-card .about-wrapper,
+            .sheet.open .sheet-card .contact-content {
+                opacity: 1;
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body class="is-loading">
+    <div class="mosaic-loader" id="mosaicLoader" aria-hidden="false">
+        <span class="mosaic-loader-text">The Traversal</span>
+    </div>
+
+    <main class="main-content">
+        <section id="overview">
+            <div class="gallery-grid" id="gallery-grid"></div>
+        </section>
+    </main>
+
+    <!-- About sheet — mosaic stays scrollable underneath -->
+    <div class="sheet" id="about-sheet" aria-hidden="true">
+        <div class="sheet-card" role="dialog" aria-labelledby="about-title">
+            <button class="sheet-close" type="button" data-close-sheet aria-label="Close about">Close</button>
+            <div class="about-wrapper">
+                <div class="about-photo">
+                    <img src="ABOUT.jpg" alt="Jacob Nadal">
+                </div>
+                <div class="about-content">
+                    <h2 id="about-title">About</h2>
+                    <p>
+                        Jacob Nadal is a film photographer based in Vancouver, British Columbia, documenting the world through the deliberate eye of analog photography. The Traversal is an ongoing visual journey; an exploration of light, landscape, and the quiet moments that exist between destinations.
+                    </p>
+                    <p>
+                        Working primarily with 35mm film, each image is a meditation on presence and place. From the rugged peaks of the Pacific Northwest to the golden hours along coastal shores, the work captures the essence of traversing through both geography and time.
+                    </p>
+                    <p class="secret-text">
+                        P.S. You found the hidden text. That kind of attention to detail? Respect.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contact sheet -->
+    <div class="sheet" id="contact-sheet" aria-hidden="true">
+        <div class="sheet-card" role="dialog" aria-labelledby="contact-title">
+            <button class="sheet-close" type="button" data-close-sheet aria-label="Close contact">Close</button>
+            <div class="contact-content">
+                <h2 id="contact-title">Get in Touch</h2>
+                <a class="email" href="mailto:jacob24@rogers.com">jacob24@rogers.com</a>
+                <p class="contact-location">Vancouver, British Columbia</p>
+                <a class="contact-social" href="https://www.instagram.com/thetraversal/" target="_blank" rel="noopener noreferrer">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                    </svg>
+                    @thetraversal
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-home" id="navHome" aria-label="Back to landing">
+            <svg class="nav-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 10.5 12 3l9 7.5"/>
+                <path d="M5 9.5V21h5v-6h4v6h5V9.5"/>
+            </svg>
+            <span class="nav-home-label">Jacob Nadal</span>
+        </a>
+        <span class="nav-divider"></span>
+        <ul class="nav-links">
+            <li><a href="#overview" data-view="overview" class="active">Overview</a></li>
+            <li><a href="#about" data-view="about">About</a></li>
+            <li><a href="#contact" data-view="contact">Contact</a></li>
+        </ul>
+    </nav>
+
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <button class="lightbox-close">CLOSE</button>
+        <img src="" alt="Enlarged view" id="lightboxImg">
+    </div>
+
+    <script src="gallery-manifest.js"></script>
+    <script>
+        // Build overview gallery from GALLERY_MANIFEST
+        (function buildGalleryFromManifest() {
+            const grid = document.getElementById('gallery-grid');
+            const items = window.GALLERY_MANIFEST || [];
+            if (!grid || !items.length) return;
+            const defaultAlt = 'The Traversal - Film Photography';
+            const frag = document.createDocumentFragment();
+            let imageIndex = 0;
+            items.forEach(entry => {
+                if (entry.type === 'image' && entry.src) {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'gallery-item';
+                    const img = document.createElement('img');
+                    img.src = entry.src;
+                    img.alt = entry.alt || defaultAlt;
+                    img.loading = imageIndex < 6 ? 'eager' : 'lazy';
+                    img.decoding = 'async';
+                    imageIndex++;
+                    wrap.appendChild(img);
+                    frag.appendChild(wrap);
+                } else if (entry.type === 'video' && entry.src) {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'gallery-item gallery-video';
+                    const video = document.createElement('video');
+                    video.dataset.gallerySrc = entry.src;
+                    video.muted = true;
+                    video.loop = true;
+                    video.setAttribute('playsinline', '');
+                    video.setAttribute('preload', 'none');
+                    wrap.appendChild(video);
+                    frag.appendChild(wrap);
+                }
+            });
+            grid.appendChild(frag);
+        })();
+
+        // Short calm entry: hold the dark veil until first images are ready,
+        // then fade into the mosaic (bridges the landing → mosaic handoff).
+        (function mosaicEntry() {
+            const loader = document.getElementById('mosaicLoader');
+            const started = performance.now();
+            const MIN_MS = 700;
+            const MAX_MS = 1800;
+            let done = false;
+
+            function reveal() {
+                if (done) return;
+                done = true;
+                document.body.classList.remove('is-loading');
+                if (loader) {
+                    loader.classList.add('done');
+                    loader.setAttribute('aria-hidden', 'true');
+                }
+            }
+
+            function tryReveal() {
+                const wait = Math.max(0, MIN_MS - (performance.now() - started));
+                setTimeout(reveal, wait);
+            }
+
+            const firstImgs = Array.from(
+                document.querySelectorAll('#gallery-grid .gallery-item img')
+            ).slice(0, 4);
+
+            if (!firstImgs.length) {
+                tryReveal();
+            } else {
+                let remaining = firstImgs.length;
+                const onOne = () => {
+                    remaining -= 1;
+                    if (remaining <= 0) tryReveal();
+                };
+                firstImgs.forEach(img => {
+                    if (img.complete && img.naturalWidth > 0) onOne();
+                    else {
+                        img.addEventListener('load', onOne, { once: true });
+                        img.addEventListener('error', onOne, { once: true });
+                    }
+                });
+            }
+
+            setTimeout(reveal, MAX_MS);
+        })();
+
+        // Snap branded cover, then go — don't stack another long wait on landing
+        (function homeHandoff() {
+            const home = document.getElementById('navHome');
+            const loader = document.getElementById('mosaicLoader');
+            if (!home) return;
+            let leaving = false;
+            home.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (leaving) return;
+                leaving = true;
+                try { sessionStorage.setItem('traversal-handoff', '1'); } catch (_) {}
+
+                if (loader) {
+                    loader.style.transition = 'none';
+                    loader.classList.remove('done');
+                    loader.setAttribute('aria-hidden', 'false');
+                    void loader.offsetWidth;
+                }
+                document.body.classList.add('is-loading');
+                // Just long enough to paint the cover, then navigate
+                setTimeout(() => { window.location.href = 'index.html'; }, 280);
+            });
+        })();
+
+        // ---------- View / sheet navigation ----------
+        // Overview = mosaic only. About/Contact = huge popup over the still-scrollable mosaic.
+        const navLinks = document.querySelectorAll('.nav-links a');
+        const aboutSheet = document.getElementById('about-sheet');
+        const contactSheet = document.getElementById('contact-sheet');
+        const sheets = { about: aboutSheet, contact: contactSheet };
+
+        function setView(view) {
+            if (view === 'work') view = 'overview'; // Work hidden for now
+            if (!['overview', 'about', 'contact'].includes(view)) view = 'overview';
+
+            navLinks.forEach(l => l.classList.remove('active'));
+            const active = document.querySelector(`.nav-links [data-view="${view}"]`);
+            if (active) active.classList.add('active');
+
+            Object.entries(sheets).forEach(([key, el]) => {
+                const open = key === view;
+                el.classList.toggle('open', open);
+                el.setAttribute('aria-hidden', open ? 'false' : 'true');
+            });
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const view = link.getAttribute('data-view');
+                // Toggle: tapping the already-open sheet closes it back to overview
+                const current = (window.location.hash || '#overview').slice(1);
+                const next = (current === view && view !== 'overview') ? 'overview' : view;
+                window.location.hash = next;
+                setView(next);
+            });
+        });
+
+        document.querySelectorAll('[data-close-sheet]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                window.location.hash = 'overview';
+                setView('overview');
+            });
+        });
+
+        function handleHashChange() {
+            setView((window.location.hash || '#overview').slice(1) || 'overview');
+        }
+        window.addEventListener('hashchange', handleHashChange);
+
+        // On refresh / first load, always start at Overview — never restore About/Contact sheets.
+        // In-session hash nav (clicking About/Contact) still works via hashchange above.
+        if (window.location.hash === '#about' || window.location.hash === '#contact' || window.location.hash === '#work') {
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+        setView('overview');
+
+        // Keep mosaic scrolling even when the cursor is over the popup card.
+        // If the card itself can scroll, only hand off at its edges.
+        const overviewEl = document.getElementById('overview');
+        document.querySelectorAll('.sheet-card').forEach(card => {
+            card.addEventListener('wheel', (e) => {
+                if (!overviewEl) return;
+                const { scrollTop, scrollHeight, clientHeight } = card;
+                const canScroll = scrollHeight > clientHeight + 1;
+                const atTop = scrollTop <= 0;
+                const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+                const handOff = !canScroll
+                    || (e.deltaY < 0 && atTop)
+                    || (e.deltaY > 0 && atBottom);
+                if (handOff) {
+                    e.preventDefault();
+                    overviewEl.scrollTop += e.deltaY;
+                }
+            }, { passive: false });
+        });
+
+        // Lightbox
+        const lightbox = document.getElementById('lightbox');
+        const lightboxImg = document.getElementById('lightboxImg');
+        document.querySelectorAll('#gallery-grid .gallery-item img').forEach(img => {
+            img.addEventListener('click', () => {
+                lightboxImg.src = img.src;
+                lightbox.classList.add('active');
+            });
+        });
+
+        function closeLightbox() { lightbox.classList.remove('active'); }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (lightbox.classList.contains('active')) closeLightbox();
+                else if (aboutSheet.classList.contains('open') || contactSheet.classList.contains('open')) {
+                    window.location.hash = 'overview';
+                    setView('overview');
+                }
+            }
+        });
+
+        // Gallery videos: defer src until near viewport
+        const videos = document.querySelectorAll('#gallery-grid .gallery-video video');
+        const overviewPanel = document.getElementById('overview');
+
+        function forceFirstFrame(video) {
+            if (!video.src) return;
+            if (video.readyState >= 2) { video.currentTime = 0.001; return; }
+            video.addEventListener('loadeddata', () => { video.currentTime = 0.001; }, { once: true });
+            if (video.readyState === 0) video.load();
+        }
+
+        function attachGalleryVideoWhenNearViewport(video) {
+            const src = video.dataset.gallerySrc;
+            if (!src || video.src) return;
+            video.src = src;
+            video.removeAttribute('data-gallery-src');
+            video.setAttribute('preload', 'metadata');
+            forceFirstFrame(video);
+            video.addEventListener('error', () => {
+                setTimeout(() => { video.load(); forceFirstFrame(video); }, 2000);
+            }, { once: true });
+        }
+
+        if (overviewPanel && videos.length) {
+            const videoObserver = new IntersectionObserver((entries) => {
+                entries.forEach((ent) => { if (ent.isIntersecting) attachGalleryVideoWhenNearViewport(ent.target); });
+            }, { root: overviewPanel, rootMargin: '80% 0px', threshold: 0 });
+            videos.forEach((v) => videoObserver.observe(v));
+        }
+
+        function playVisibleVideos() {
+            videos.forEach(video => {
+                if (!video.src) return;
+                const rect = video.getBoundingClientRect();
+                const inView = rect.top < window.innerHeight && rect.bottom > 0;
+                if (inView) {
+                    if (video.readyState >= 2) {
+                        video.play().catch(() => {});
+                    } else {
+                        video.addEventListener('canplay', () => {
+                            const r = video.getBoundingClientRect();
+                            if (r.top < window.innerHeight && r.bottom > 0) video.play().catch(() => {});
+                        }, { once: true });
+                    }
+                } else {
+                    video.pause();
+                }
+            });
+        }
+
+        if (overviewPanel) overviewPanel.addEventListener('scroll', playVisibleVideos);
+        setTimeout(playVisibleVideos, 500);
+        setTimeout(playVisibleVideos, 1500);
+        setTimeout(playVisibleVideos, 3000);
+
+        videos.forEach(video => {
+            video.setAttribute('playsinline', '');
+            video.style.cursor = 'pointer';
+
+            let touchStartY = 0;
+            let touchStartTime = 0;
+            let hasMoved = false;
+
+            video.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+                touchStartTime = Date.now();
+                hasMoved = false;
+            }, { passive: true });
+
+            video.addEventListener('touchmove', (e) => {
+                if (Math.abs(e.touches[0].clientY - touchStartY) > 10) hasMoved = true;
+            }, { passive: true });
+
+            const handleVideoTap = (e) => {
+                if (e.type === 'touchend' && (hasMoved || Date.now() - touchStartTime > 500)) return;
+                e.preventDefault();
+                e.stopPropagation();
+                video.muted = false;
+                if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
+                else if (video.requestFullscreen) video.requestFullscreen();
+                else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
+                else if (video.mozRequestFullScreen) video.mozRequestFullScreen();
+                else video.play();
+            };
+
+            video.addEventListener('click', handleVideoTap);
+            video.addEventListener('touchend', handleVideoTap);
+        });
+    </script>
+</body>
+</html>
