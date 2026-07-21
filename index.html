@@ -30,6 +30,8 @@
             color: var(--text);
             font-family: var(--font-body);
             -webkit-font-smoothing: antialiased;
+            overscroll-behavior-y: none;
+            -webkit-overflow-scrolling: touch;
         }
 
         /* Recommended Lenis styles */
@@ -459,10 +461,14 @@
         slidesEl.addEventListener('click', () => { if (!moved) enterSite(); });
 
         // ---------- Lenis smooth + infinite scroll ----------
+        const isTouch =
+            window.matchMedia('(pointer: coarse)').matches ||
+            (navigator.maxTouchPoints || 0) > 0;
         let lastScroll = 0;
         let wrapping = false;
         let wrapCooldownUntil = 0;
         let isSnapping = false;
+        let touchActive = false;
 
         function slideHeight() {
             return window.innerHeight || 1;
@@ -473,17 +479,42 @@
         }
 
         if (!reduceMotion && window.Lenis) {
-            lenis = new Lenis({
+            // Touch needs inertia + no fighting snap. Desktop keeps magnetic pull.
+            lenis = new Lenis(isTouch ? {
+                infinite: true,
+                syncTouch: true,
+                syncTouchLerp: 0.06,
+                touchInertiaExponent: 1.85,
+                touchMultiplier: 1.15,
+                wheelMultiplier: 0.9,
+                lerp: 0.12,
+                gestureOrientation: 'vertical',
+                smoothWheel: true,
+            } : {
                 infinite: true,
                 lerp: 0.085,
                 wheelMultiplier: 0.9,
-                touchMultiplier: 1.35,
+                touchMultiplier: 1.15,
                 gestureOrientation: 'vertical',
                 syncTouch: true,
+                syncTouchLerp: 0.075,
+                touchInertiaExponent: 1.7,
             });
             lenis.scrollTo(0, { immediate: true, force: true });
             lastScroll = 0;
         }
+
+        // Keep native-feeling touch panning; stop the browser from hijacking gestures
+        document.documentElement.style.touchAction = 'pan-y';
+        document.body.style.touchAction = 'pan-y';
+        slidesEl.style.touchAction = 'pan-y';
+
+        window.addEventListener('touchstart', () => { touchActive = true; }, { passive: true });
+        window.addEventListener('touchend', () => {
+            // Leave a beat so inertia can run before anything else reacts
+            setTimeout(() => { touchActive = false; }, 80);
+        }, { passive: true });
+        window.addEventListener('touchcancel', () => { touchActive = false; }, { passive: true });
 
         // ---------- Parallax (wrap-safe) ----------
         function resetParallax() {
@@ -500,6 +531,8 @@
             }
 
             const vh = slideHeight();
+            // Lighter parallax on touch = less GPU thrash mid-fling
+            const amount = isTouch ? -3.5 : -5.5;
             for (const slide of slideEls) {
                 const media = slide.firstElementChild;
                 if (!media) continue;
@@ -511,7 +544,7 @@
                 }
 
                 const progress = (rect.top + rect.height / 2 - vh / 2) / vh;
-                const shift = Math.max(-1, Math.min(1, progress)) * -5.5;
+                const shift = Math.max(-1, Math.min(1, progress)) * amount;
                 media.style.transform = 'translate3d(0,' + shift.toFixed(2) + '%,0)';
             }
         }
@@ -525,8 +558,9 @@
         if (!lenis) window.addEventListener('scroll', updateParallax, { passive: true });
         updateParallax();
 
-        // ---------- Magnetic snap ----------
-        if (lenis) {
+        // ---------- Magnetic snap (desktop / fine pointer only) ----------
+        // On touch this felt like discrete paging — free inertia instead.
+        if (lenis && !isTouch) {
             const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
             let snapTimer = null;
 
@@ -544,7 +578,7 @@
             }
 
             function snapToNearest() {
-                if (navigating || isSnapping || wrapping) return;
+                if (navigating || isSnapping || wrapping || touchActive) return;
                 if (performance.now() < wrapCooldownUntil) return;
                 const { best, bestDist, bestIndex } = nearestSlide();
                 if (!best || bestDist < 4) return;
@@ -583,7 +617,7 @@
                 }
                 lastScroll = scroll;
 
-                if (isSnapping || wrapping) return;
+                if (isSnapping || wrapping || touchActive) return;
                 if (Math.abs(velocity) > 1.2) {
                     clearTimeout(snapTimer);
                     return;
@@ -594,6 +628,28 @@
 
             ['wheel', 'touchstart', 'keydown'].forEach(evt => {
                 window.addEventListener(evt, () => { clearTimeout(snapTimer); }, { passive: true });
+            });
+        } else if (lenis) {
+            // Touch path: only handle infinite wrap cleanup — no snap
+            lenis.on('scroll', ({ scroll }) => {
+                const delta = Math.abs(scroll - lastScroll);
+                const limit = totalHeight() * 0.4;
+                if (delta > limit) {
+                    wrapping = true;
+                    wrapCooldownUntil = performance.now() + 280;
+                    resetParallax();
+                    // If we landed on the seam clone after a wrap, silently normalize
+                    requestAnimationFrame(() => {
+                        const top = slideEls[realCount] && Math.abs(slideEls[realCount].getBoundingClientRect().top);
+                        if (typeof top === 'number' && top < 8) {
+                            lenis.scrollTo(0, { immediate: true, force: true });
+                            lastScroll = 0;
+                        }
+                        wrapping = false;
+                        resetParallax();
+                    });
+                }
+                lastScroll = scroll;
             });
         }
 
