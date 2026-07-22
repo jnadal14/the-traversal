@@ -32,6 +32,14 @@
             -webkit-font-smoothing: antialiased;
             overscroll-behavior-y: none;
             -webkit-overflow-scrolling: touch;
+            /* Infinite loop remaps scroll — hide the bar so it never jumps */
+            scrollbar-width: none;
+        }
+        html::-webkit-scrollbar,
+        body::-webkit-scrollbar {
+            display: none;
+            width: 0;
+            height: 0;
         }
 
         /* Recommended Lenis styles */
@@ -359,7 +367,23 @@
         <span class="enter-veil-text">The Traversal</span>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.min.js"></script>
+    <!-- Unveil failsafe: runs even if Lenis fails to load. -->
+    <script>
+        (function () {
+            function clearArriveVeil() {
+                if (window.__landingNavigating) return;
+                document.body.classList.remove('is-arriving');
+                var veil = document.getElementById('enterVeil');
+                if (!veil) return;
+                veil.classList.add('is-fading');
+                veil.classList.remove('active');
+            }
+            // Absolute last resort so local hosting never sticks on the loader.
+            setTimeout(clearArriveVeil, 1600);
+            window.__clearArriveVeil = clearArriveVeil;
+        })();
+    </script>
+    <script src="vendor/lenis.min.js"></script>
     <script>
         // Landing slides — edit this list to change the infinite loop.
         // type: 'image' | 'video'.  sub is optional (leave '' to hide).
@@ -377,23 +401,27 @@
         const MOSAIC_URL = 'mosaic.html';
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-        // Always start from the very first slide on (re)load.
+        // Always start from the first real slide on (re)load.
         if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-        window.scrollTo(0, 0);
-        window.addEventListener('beforeunload', () => window.scrollTo(0, 0));
 
         // ---------- Build slides ----------
-        // Lenis infinite teleports between the document ends. To make that
-        // invisible, append a clone of the FIRST slide after the last — so
-        // scrolling up from 01 (or down past the end) lands on a matching frame
-        // instead of jumping to the final image.
+        // Seamless loop without Lenis infinite (that was breaking up-scroll
+        // after wrapping to 01, and snapping at the ends):
+        //   [clone of LAST] + [real slides] + [clone of FIRST]
+        // Start on the first real slide. When you enter a clone zone, silently
+        // jump to the matching real slide — always room to scroll both ways.
         const slidesEl = document.getElementById('slides');
         const frag = document.createDocumentFragment();
+        const N = LANDING_SLIDES.length;
+        const IDX_LAST_CLONE = 0;
+        const IDX_FIRST_REAL = 1;
+        const IDX_LAST_REAL = N;
+        const IDX_FIRST_CLONE = N + 1;
 
         function createSlide(item, displayIndex, opts) {
             const slide = document.createElement('section');
             slide.className = 'slide';
-            if (opts && opts.clone) slide.dataset.clone = 'first';
+            if (opts && opts.clone) slide.dataset.clone = opts.clone;
             slide.dataset.slideIndex = String(displayIndex);
 
             const media = document.createElement('div');
@@ -433,33 +461,34 @@
             return slide;
         }
 
+        frag.appendChild(createSlide(LANDING_SLIDES[N - 1], N - 1, { clone: 'last' }));
         LANDING_SLIDES.forEach((item, i) => {
             frag.appendChild(createSlide(item, i));
         });
-        // Seam clone — identical to slide 01, sits after the last real slide
-        frag.appendChild(createSlide(LANDING_SLIDES[0], 0, { clone: true }));
+        frag.appendChild(createSlide(LANDING_SLIDES[0], 0, { clone: 'first' }));
 
         slidesEl.appendChild(frag);
         const slideEls = Array.from(document.querySelectorAll('.slide'));
-        const realCount = LANDING_SLIDES.length; // excludes the seam clone
 
         let lenis = null;
 
         // ---------- Enter navigation ----------
-        const veil = document.getElementById('enterVeil');
         let navigating = false;
 
-        // Clear arrival veil / frozen enter state (also used after bfcache back)
         function revealLanding(force) {
-            const veil = document.getElementById('enterVeil');
             if (!force && navigating) return;
             navigating = false;
-            document.body.classList.remove('is-arriving');
-            if (veil) {
-                veil.classList.add('is-fading');
-                veil.classList.remove('active');
+            window.__landingNavigating = false;
+            if (typeof window.__clearArriveVeil === 'function') {
+                window.__clearArriveVeil();
+            } else {
+                document.body.classList.remove('is-arriving');
+                const veilEl = document.getElementById('enterVeil');
+                if (veilEl) {
+                    veilEl.classList.add('is-fading');
+                    veilEl.classList.remove('active');
+                }
             }
-            // Kick videos + Lenis after a frozen back-navigation restore
             document.querySelectorAll('.slide-media video').forEach(v => {
                 v.muted = true;
                 v.play().catch(() => {});
@@ -473,7 +502,7 @@
         function enterSite() {
             if (navigating) return;
             navigating = true;
-            // Stop but don't destroy — bfcache back needs Lenis alive
+            window.__landingNavigating = true;
             if (lenis) {
                 try { lenis.stop(); } catch (_) {}
             }
@@ -499,51 +528,80 @@
         });
         slidesEl.addEventListener('click', () => { if (!moved) enterSite(); });
 
-        // ---------- Lenis smooth + infinite scroll ----------
+        // ---------- Lenis smooth scroll (manual seamless loop) ----------
         const isTouch =
             window.matchMedia('(pointer: coarse)').matches ||
             (navigator.maxTouchPoints || 0) > 0;
         let lastScroll = 0;
         let wrapping = false;
-        let wrapCooldownUntil = 0;
         let isSnapping = false;
         let touchActive = false;
         let lastVelocity = 0;
+        // Don't remap until the first real slide is seated — otherwise a 0-height
+        // layout pass can clamp wraps forever and freeze the main thread.
+        let loopReady = false;
 
         function slideHeight() {
-            return window.innerHeight || 1;
+            // Prefer measured slide height (handles mobile URL bar / svh)
+            const h = slideEls[IDX_FIRST_REAL] && slideEls[IDX_FIRST_REAL].offsetHeight;
+            return h || window.innerHeight || 1;
         }
 
-        function totalHeight() {
-            return slideEls.length * slideHeight();
+        function scrollForIndex(i) {
+            return i * slideHeight();
         }
 
-        if (!reduceMotion && window.Lenis) {
-            // Touch: butterier inertia (closer to native mosaic scroll).
-            // Desktop: slightly tighter lerp for wheel.
-            lenis = new Lenis(isTouch ? {
-                infinite: true,
-                syncTouch: true,
-                syncTouchLerp: 0.045,
-                touchInertiaExponent: 1.55,
-                touchMultiplier: 1.05,
-                wheelMultiplier: 0.9,
-                lerp: 0.075,
-                gestureOrientation: 'vertical',
-                smoothWheel: true,
-            } : {
-                infinite: true,
-                lerp: 0.085,
-                wheelMultiplier: 0.9,
-                touchMultiplier: 1.1,
-                gestureOrientation: 'vertical',
-                syncTouch: true,
-                syncTouchLerp: 0.075,
-                touchInertiaExponent: 1.7,
+        function ensureLenis() {
+            if (reduceMotion || !window.Lenis) return;
+            if (lenis) return;
+            try {
+                lenis = new Lenis(isTouch ? {
+                    infinite: false,
+                    syncTouch: true,
+                    syncTouchLerp: 0.085,
+                    touchInertiaMultiplier: 12,
+                    touchMultiplier: 1.0,
+                    wheelMultiplier: 0.85,
+                    lerp: 0.12,
+                    gestureOrientation: 'vertical',
+                    smoothWheel: true,
+                } : {
+                    infinite: false,
+                    lerp: 0.14,
+                    wheelMultiplier: 0.85,
+                    touchMultiplier: 1.0,
+                    gestureOrientation: 'vertical',
+                    syncTouch: true,
+                    syncTouchLerp: 0.1,
+                    touchInertiaMultiplier: 14,
+                });
+            } catch (_) {
+                lenis = null;
+            }
+        }
+
+        function seatAtFirstReal() {
+            const y = scrollForIndex(IDX_FIRST_REAL);
+            if (lenis) {
+                try {
+                    lenis.resize();
+                    lenis.scrollTo(y, { immediate: true, force: true });
+                } catch (_) {}
+            } else {
+                window.scrollTo(0, y);
+            }
+            lastScroll = y;
+        }
+
+        ensureLenis();
+        seatAtFirstReal();
+        requestAnimationFrame(() => {
+            seatAtFirstReal();
+            requestAnimationFrame(() => {
+                seatAtFirstReal();
+                loopReady = true;
             });
-            lenis.scrollTo(0, { immediate: true, force: true });
-            lastScroll = 0;
-        }
+        });
 
         document.documentElement.style.touchAction = 'pan-y';
         document.body.style.touchAction = 'pan-y';
@@ -553,14 +611,47 @@
             touchActive = true;
             isSnapping = false;
         }, { passive: true });
-        window.addEventListener('touchend', () => {
-            touchActive = false;
-        }, { passive: true });
-        window.addEventListener('touchcancel', () => {
-            touchActive = false;
-        }, { passive: true });
+        window.addEventListener('touchend', () => { touchActive = false; }, { passive: true });
+        window.addEventListener('touchcancel', () => { touchActive = false; }, { passive: true });
 
-        // ---------- Parallax (wrap-safe) ----------
+        // Remap clone zones → real slides (keeps both scroll directions alive)
+        function normalizeLoop() {
+            if (!loopReady || !lenis || wrapping || isSnapping) return;
+            const h = slideHeight();
+            if (h < 80) return;
+            const y = lenis.scroll;
+            const limit = typeof lenis.limit === 'number' ? lenis.limit : Infinity;
+            // Top buffer = clone of last → jump to real last
+            if (y < h * 0.5) {
+                const next = Math.min(y + N * h, limit);
+                if (next <= y + 1) return; // layout not ready / clamp would no-op
+                wrapping = true;
+                lenis.scrollTo(next, { immediate: true, force: true });
+                lastScroll = next;
+                wrapping = false;
+                resetParallax();
+                return;
+            }
+            // Bottom buffer = clone of first → jump to real first
+            if (y > (N + 0.5) * h) {
+                const next = Math.max(0, y - N * h);
+                if (next >= y - 1) return;
+                wrapping = true;
+                lenis.scrollTo(next, { immediate: true, force: true });
+                lastScroll = next;
+                wrapping = false;
+                resetParallax();
+            }
+        }
+
+        // Map any index (including clones) to the real slide we should snap to
+        function realSnapIndex(i) {
+            if (i === IDX_LAST_CLONE) return IDX_LAST_REAL;
+            if (i === IDX_FIRST_CLONE) return IDX_FIRST_REAL;
+            return i;
+        }
+
+        // ---------- Parallax ----------
         function resetParallax() {
             for (const slide of slideEls) {
                 const media = slide.firstElementChild;
@@ -569,23 +660,20 @@
         }
 
         function updateParallax() {
-            if (wrapping || performance.now() < wrapCooldownUntil) {
+            if (wrapping) {
                 resetParallax();
                 return;
             }
-
             const vh = slideHeight();
             const amount = isTouch ? -3.2 : -5.5;
             for (const slide of slideEls) {
                 const media = slide.firstElementChild;
                 if (!media) continue;
                 const rect = slide.getBoundingClientRect();
-
                 if (rect.bottom <= 0 || rect.top >= vh) {
                     media.style.transform = 'translate3d(0,0,0)';
                     continue;
                 }
-
                 const progress = (rect.top + rect.height / 2 - vh / 2) / vh;
                 const shift = Math.max(-1, Math.min(1, progress)) * amount;
                 media.style.transform = 'translate3d(0,' + shift.toFixed(2) + '%,0)';
@@ -593,7 +681,10 @@
         }
 
         function raf(time) {
-            if (lenis) lenis.raf(time);
+            if (lenis) {
+                lenis.raf(time);
+                normalizeLoop();
+            }
             updateParallax();
             requestAnimationFrame(raf);
         }
@@ -601,16 +692,15 @@
         if (!lenis) window.addEventListener('scroll', updateParallax, { passive: true });
         updateParallax();
 
-        // ---------- Magnetic snap (desktop + mobile) ----------
-        // Free while moving; once truly stopped, ease to the nearest frame.
+        // ---------- Magnetic snap ----------
         if (lenis) {
-            // Soft ease — jerky snaps usually come from short/harsh pulls
             const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
             let snapTimer = null;
-            const SNAP_DELAY = isTouch ? 90 : 140;
-            const SNAP_DURATION = isTouch ? 0.62 : 0.75;
-            const VEL_IDLE = isTouch ? 0.2 : 1.0;
-            const SNAP_DEADZONE = isTouch ? 10 : 4; // px — skip tiny corrections
+            // Snap as soon as coasting slows — don't wait out a long inertia drift.
+            const SNAP_DELAY = isTouch ? 28 : 36;
+            const SNAP_DURATION = isTouch ? 0.42 : 0.48;
+            const VEL_IDLE = isTouch ? 1.35 : 2.8;
+            const SNAP_DEADZONE = isTouch ? 8 : 3;
 
             function nearestSlide() {
                 let best = null, bestDist = Infinity, bestIndex = 0;
@@ -627,26 +717,28 @@
 
             function snapToNearest() {
                 if (navigating || isSnapping || wrapping || touchActive) return;
-                if (performance.now() < wrapCooldownUntil) return;
                 if (Math.abs(lastVelocity) > VEL_IDLE) return;
                 if (!lenis) return;
 
-                const { best, bestDist, bestIndex } = nearestSlide();
-                if (!best || bestDist < SNAP_DEADZONE) return;
+                normalizeLoop();
 
-                if (bestIndex === realCount) {
-                    lenis.scrollTo(0, { immediate: true, force: true });
-                    lastScroll = 0;
-                    resetParallax();
-                    return;
-                }
+                const { bestDist, bestIndex } = nearestSlide();
+                const targetIndex = realSnapIndex(bestIndex);
+                const target = slideEls[targetIndex];
+                if (!target) return;
+
+                const dist = Math.abs(target.getBoundingClientRect().top);
+                if (dist < SNAP_DEADZONE) return;
 
                 isSnapping = true;
-                lenis.scrollTo(best, {
+                lenis.scrollTo(target, {
                     duration: SNAP_DURATION,
                     easing: easeOutQuart,
                     lock: false,
-                    onComplete: () => { isSnapping = false; },
+                    onComplete: () => {
+                        isSnapping = false;
+                        normalizeLoop();
+                    },
                 });
             }
 
@@ -657,32 +749,14 @@
 
             lenis.on('scroll', ({ scroll, velocity }) => {
                 lastVelocity = velocity || 0;
-                const delta = Math.abs(scroll - lastScroll);
-                const limit = totalHeight() * 0.4;
-
-                if (delta > limit) {
-                    wrapping = true;
-                    wrapCooldownUntil = performance.now() + 280;
-                    resetParallax();
-                    clearTimeout(snapTimer);
-                    isSnapping = false;
-                    requestAnimationFrame(() => {
-                        const clone = slideEls[realCount];
-                        if (clone && Math.abs(clone.getBoundingClientRect().top) < 8) {
-                            lenis.scrollTo(0, { immediate: true, force: true });
-                            lastScroll = 0;
-                        }
-                        wrapping = false;
-                        resetParallax();
-                    });
-                }
                 lastScroll = scroll;
+                if (wrapping) return;
+                normalizeLoop();
 
                 if (isSnapping || wrapping || touchActive) {
                     clearTimeout(snapTimer);
                     return;
                 }
-
                 if (Math.abs(lastVelocity) > VEL_IDLE) {
                     clearTimeout(snapTimer);
                     return;
@@ -693,11 +767,10 @@
             window.addEventListener('touchend', () => {
                 if (!isTouch) return;
                 clearTimeout(snapTimer);
-                // Let inertia run; snap only once it's nearly stopped
                 snapTimer = setTimeout(() => {
                     if (Math.abs(lastVelocity) <= VEL_IDLE) snapToNearest();
                     else scheduleSnap();
-                }, 100);
+                }, 40);
             }, { passive: true });
 
             ['wheel', 'touchstart', 'keydown'].forEach(evt => {
@@ -799,11 +872,14 @@
             isSnapping = false;
             touchActive = false;
             revealLanding(true);
+            if (!lenis) ensureLenis();
             if (lenis) {
                 try { lenis.start(); } catch (_) {}
                 try { lenis.resize(); } catch (_) {}
-                try { lenis.scrollTo(0, { immediate: true, force: true }); } catch (_) {}
-                lastScroll = 0;
+                try {
+                    lenis.scrollTo(scrollForIndex(IDX_FIRST_REAL), { immediate: true, force: true });
+                } catch (_) {}
+                lastScroll = scrollForIndex(IDX_FIRST_REAL);
             }
         });
     </script>
