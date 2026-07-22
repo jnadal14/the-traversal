@@ -72,8 +72,14 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
+            object-position: center center;
             display: block;
             background: #050505;
+        }
+
+        .slide-media.media-focus-left img,
+        .slide-media.media-focus-left video {
+            object-position: left center;
         }
 
         /* Subtle vignette so captions stay legible */
@@ -291,6 +297,12 @@
                 letter-spacing: 0.1em;
                 line-height: 1.35;
             }
+
+            /* Prefer the left side of wide landscape clips on tall phones */
+            .slide-media.media-focus-left img,
+            .slide-media.media-focus-left video {
+                object-position: 18% center;
+            }
         }
 
         @media (max-width: 480px) {
@@ -356,9 +368,9 @@
             { type: 'image', src: 'IMAGES/01.jpg',                        title: 'Takakkaw Falls',  sub: 'Yoho National Park' },
             { type: 'image', src: 'IMAGES/new/cass-and-aiden.jpg',       title: 'Back to Me',      sub: 'Dirty Aesthetic · Cover Art' },
             { type: 'image', src: 'IMAGES/03.jpg',                        title: 'King\u2019s Peak', sub: 'Strathcona Provincial Park' },
-            { type: 'video', src: 'CLIPS/03_Fire_lookout_1.mp4',         title: 'Fire Lookout',    sub: '' },
+            { type: 'video', src: 'CLIPS/03_Fire_lookout_1.mp4',         title: 'Hidden Lake Lookout', sub: 'North Cascades' },
             { type: 'image', src: 'IMAGES/new/man-under-snowy-mountain.jpg', title: 'Whistler',    sub: 'Avalanche Safety Training' },
-            { type: 'video', src: 'CLIPS/02_SAS_1.mp4',                 title: 'Saskatchewan',    sub: 'Windmill' },
+            { type: 'video', src: 'CLIPS/02_SAS_1.mp4',                 title: 'Saskatchewan',    sub: 'Windmill', focus: 'left' },
             { type: 'image', src: 'IMAGES/06.jpg',                        title: 'Kokanee Glacier', sub: 'Provincial Park' },
         ];
 
@@ -386,6 +398,7 @@
 
             const media = document.createElement('div');
             media.className = 'slide-media';
+            if (item.focus === 'left') media.classList.add('media-focus-left');
 
             if (item.type === 'video') {
                 const v = document.createElement('video');
@@ -469,6 +482,7 @@
         let wrapCooldownUntil = 0;
         let isSnapping = false;
         let touchActive = false;
+        let lastVelocity = 0;
 
         function slideHeight() {
             return window.innerHeight || 1;
@@ -479,22 +493,23 @@
         }
 
         if (!reduceMotion && window.Lenis) {
-            // Touch needs inertia + no fighting snap. Desktop keeps magnetic pull.
+            // Touch: butterier inertia (closer to native mosaic scroll).
+            // Desktop: slightly tighter lerp for wheel.
             lenis = new Lenis(isTouch ? {
                 infinite: true,
                 syncTouch: true,
-                syncTouchLerp: 0.06,
-                touchInertiaExponent: 1.85,
-                touchMultiplier: 1.15,
+                syncTouchLerp: 0.045,
+                touchInertiaExponent: 1.55,
+                touchMultiplier: 1.05,
                 wheelMultiplier: 0.9,
-                lerp: 0.12,
+                lerp: 0.075,
                 gestureOrientation: 'vertical',
                 smoothWheel: true,
             } : {
                 infinite: true,
                 lerp: 0.085,
                 wheelMultiplier: 0.9,
-                touchMultiplier: 1.15,
+                touchMultiplier: 1.1,
                 gestureOrientation: 'vertical',
                 syncTouch: true,
                 syncTouchLerp: 0.075,
@@ -504,17 +519,24 @@
             lastScroll = 0;
         }
 
-        // Keep native-feeling touch panning; stop the browser from hijacking gestures
         document.documentElement.style.touchAction = 'pan-y';
         document.body.style.touchAction = 'pan-y';
         slidesEl.style.touchAction = 'pan-y';
 
-        window.addEventListener('touchstart', () => { touchActive = true; }, { passive: true });
-        window.addEventListener('touchend', () => {
-            // Leave a beat so inertia can run before anything else reacts
-            setTimeout(() => { touchActive = false; }, 80);
+        window.addEventListener('touchstart', () => {
+            touchActive = true;
+            // Cancel an in-flight snap so the finger always owns the scroll
+            if (isSnapping && lenis) {
+                try { lenis.stop(); lenis.start(); } catch (_) {}
+                isSnapping = false;
+            }
         }, { passive: true });
-        window.addEventListener('touchcancel', () => { touchActive = false; }, { passive: true });
+        window.addEventListener('touchend', () => {
+            touchActive = false;
+        }, { passive: true });
+        window.addEventListener('touchcancel', () => {
+            touchActive = false;
+        }, { passive: true });
 
         // ---------- Parallax (wrap-safe) ----------
         function resetParallax() {
@@ -531,8 +553,7 @@
             }
 
             const vh = slideHeight();
-            // Lighter parallax on touch = less GPU thrash mid-fling
-            const amount = isTouch ? -3.5 : -5.5;
+            const amount = isTouch ? -3.2 : -5.5;
             for (const slide of slideEls) {
                 const media = slide.firstElementChild;
                 if (!media) continue;
@@ -558,11 +579,15 @@
         if (!lenis) window.addEventListener('scroll', updateParallax, { passive: true });
         updateParallax();
 
-        // ---------- Magnetic snap (desktop / fine pointer only) ----------
-        // On touch this felt like discrete paging — free inertia instead.
-        if (lenis && !isTouch) {
-            const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+        // ---------- Magnetic snap (desktop + mobile) ----------
+        // Free while moving; once stopped, pull to the nearest full frame.
+        // Touch snaps quicker / shorter so it doesn't feel sticky.
+        if (lenis) {
+            const easeOut = (t) => 1 - Math.pow(1 - t, isTouch ? 3 : 3);
             let snapTimer = null;
+            const SNAP_DELAY = isTouch ? 55 : 140;       // how fast after stop
+            const SNAP_DURATION = isTouch ? 0.38 : 0.75; // how fast the pull
+            const VEL_IDLE = isTouch ? 0.35 : 1.2;       // "stopped" threshold
 
             function nearestSlide() {
                 let best = null, bestDist = Infinity, bestIndex = 0;
@@ -578,12 +603,15 @@
             }
 
             function snapToNearest() {
-                if (navigating || isSnapping || wrapping || touchActive) return;
+                if (navigating || isSnapping || wrapping) return;
+                if (touchActive) return; // never snap under a finger
                 if (performance.now() < wrapCooldownUntil) return;
-                const { best, bestDist, bestIndex } = nearestSlide();
-                if (!best || bestDist < 4) return;
+                if (Math.abs(lastVelocity) > VEL_IDLE) return;
 
-                // Resting on the seam clone → jump to real first (identical pixels)
+                const { best, bestDist, bestIndex } = nearestSlide();
+                if (!best || bestDist < 3) return;
+
+                // Seam clone → real first (identical frame)
                 if (bestIndex === realCount) {
                     lenis.scrollTo(0, { immediate: true, force: true });
                     lastScroll = 0;
@@ -593,14 +621,21 @@
 
                 isSnapping = true;
                 lenis.scrollTo(best, {
-                    duration: 0.75,
-                    easing: easeOutCubic,
-                    lock: true,
+                    duration: SNAP_DURATION,
+                    easing: easeOut,
+                    // Don't lock on touch — user can interrupt mid-snap
+                    lock: !isTouch,
                     onComplete: () => { isSnapping = false; },
                 });
             }
 
+            function scheduleSnap() {
+                clearTimeout(snapTimer);
+                snapTimer = setTimeout(snapToNearest, SNAP_DELAY);
+            }
+
             lenis.on('scroll', ({ scroll, velocity }) => {
+                lastVelocity = velocity || 0;
                 const delta = Math.abs(scroll - lastScroll);
                 const limit = totalHeight() * 0.4;
 
@@ -611,37 +646,9 @@
                     clearTimeout(snapTimer);
                     isSnapping = false;
                     requestAnimationFrame(() => {
-                        wrapping = false;
-                        resetParallax();
-                    });
-                }
-                lastScroll = scroll;
-
-                if (isSnapping || wrapping || touchActive) return;
-                if (Math.abs(velocity) > 1.2) {
-                    clearTimeout(snapTimer);
-                    return;
-                }
-                clearTimeout(snapTimer);
-                snapTimer = setTimeout(snapToNearest, 150);
-            });
-
-            ['wheel', 'touchstart', 'keydown'].forEach(evt => {
-                window.addEventListener(evt, () => { clearTimeout(snapTimer); }, { passive: true });
-            });
-        } else if (lenis) {
-            // Touch path: only handle infinite wrap cleanup — no snap
-            lenis.on('scroll', ({ scroll }) => {
-                const delta = Math.abs(scroll - lastScroll);
-                const limit = totalHeight() * 0.4;
-                if (delta > limit) {
-                    wrapping = true;
-                    wrapCooldownUntil = performance.now() + 280;
-                    resetParallax();
-                    // If we landed on the seam clone after a wrap, silently normalize
-                    requestAnimationFrame(() => {
-                        const top = slideEls[realCount] && Math.abs(slideEls[realCount].getBoundingClientRect().top);
-                        if (typeof top === 'number' && top < 8) {
+                        // Normalize seam clone → real first after wrap
+                        const clone = slideEls[realCount];
+                        if (clone && Math.abs(clone.getBoundingClientRect().top) < 8) {
                             lenis.scrollTo(0, { immediate: true, force: true });
                             lastScroll = 0;
                         }
@@ -650,6 +657,32 @@
                     });
                 }
                 lastScroll = scroll;
+
+                if (isSnapping || wrapping || touchActive) {
+                    clearTimeout(snapTimer);
+                    return;
+                }
+
+                // Still flinging — keep free; only snap once nearly stopped
+                if (Math.abs(lastVelocity) > VEL_IDLE) {
+                    clearTimeout(snapTimer);
+                    return;
+                }
+                scheduleSnap();
+            });
+
+            // The moment the finger lifts, try to snap ASAP once inertia dies
+            window.addEventListener('touchend', () => {
+                if (!isTouch) return;
+                clearTimeout(snapTimer);
+                snapTimer = setTimeout(() => {
+                    if (Math.abs(lastVelocity) <= VEL_IDLE) snapToNearest();
+                    else scheduleSnap();
+                }, 40);
+            }, { passive: true });
+
+            ['wheel', 'touchstart', 'keydown'].forEach(evt => {
+                window.addEventListener(evt, () => { clearTimeout(snapTimer); }, { passive: true });
             });
         }
 
