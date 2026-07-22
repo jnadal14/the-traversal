@@ -448,15 +448,41 @@
         // ---------- Enter navigation ----------
         const veil = document.getElementById('enterVeil');
         let navigating = false;
+
+        // Clear arrival veil / frozen enter state (also used after bfcache back)
+        function revealLanding(force) {
+            const veil = document.getElementById('enterVeil');
+            if (!force && navigating) return;
+            navigating = false;
+            document.body.classList.remove('is-arriving');
+            if (veil) {
+                veil.classList.add('is-fading');
+                veil.classList.remove('active');
+            }
+            // Kick videos + Lenis after a frozen back-navigation restore
+            document.querySelectorAll('.slide-media video').forEach(v => {
+                v.muted = true;
+                v.play().catch(() => {});
+            });
+            if (lenis) {
+                try { lenis.start(); } catch (_) {}
+                try { lenis.resize(); } catch (_) {}
+            }
+        }
+
         function enterSite() {
             if (navigating) return;
             navigating = true;
+            // Stop but don't destroy — bfcache back needs Lenis alive
             if (lenis) {
-                try { lenis.stop(); lenis.destroy(); } catch (_) {}
-                lenis = null;
+                try { lenis.stop(); } catch (_) {}
             }
             document.documentElement.classList.remove('lenis', 'lenis-smooth');
-            veil.classList.add('active');
+            const v = document.getElementById('enterVeil');
+            if (v) {
+                v.classList.remove('is-fading');
+                v.classList.add('active');
+            }
             setTimeout(() => { window.location.href = MOSAIC_URL; }, 420);
         }
 
@@ -525,11 +551,7 @@
 
         window.addEventListener('touchstart', () => {
             touchActive = true;
-            // Cancel an in-flight snap so the finger always owns the scroll
-            if (isSnapping && lenis) {
-                try { lenis.stop(); lenis.start(); } catch (_) {}
-                isSnapping = false;
-            }
+            isSnapping = false;
         }, { passive: true });
         window.addEventListener('touchend', () => {
             touchActive = false;
@@ -580,14 +602,15 @@
         updateParallax();
 
         // ---------- Magnetic snap (desktop + mobile) ----------
-        // Free while moving; once stopped, pull to the nearest full frame.
-        // Touch snaps quicker / shorter so it doesn't feel sticky.
+        // Free while moving; once truly stopped, ease to the nearest frame.
         if (lenis) {
-            const easeOut = (t) => 1 - Math.pow(1 - t, isTouch ? 3 : 3);
+            // Soft ease — jerky snaps usually come from short/harsh pulls
+            const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
             let snapTimer = null;
-            const SNAP_DELAY = isTouch ? 55 : 140;       // how fast after stop
-            const SNAP_DURATION = isTouch ? 0.38 : 0.75; // how fast the pull
-            const VEL_IDLE = isTouch ? 0.35 : 1.2;       // "stopped" threshold
+            const SNAP_DELAY = isTouch ? 90 : 140;
+            const SNAP_DURATION = isTouch ? 0.62 : 0.75;
+            const VEL_IDLE = isTouch ? 0.2 : 1.0;
+            const SNAP_DEADZONE = isTouch ? 10 : 4; // px — skip tiny corrections
 
             function nearestSlide() {
                 let best = null, bestDist = Infinity, bestIndex = 0;
@@ -603,15 +626,14 @@
             }
 
             function snapToNearest() {
-                if (navigating || isSnapping || wrapping) return;
-                if (touchActive) return; // never snap under a finger
+                if (navigating || isSnapping || wrapping || touchActive) return;
                 if (performance.now() < wrapCooldownUntil) return;
                 if (Math.abs(lastVelocity) > VEL_IDLE) return;
+                if (!lenis) return;
 
                 const { best, bestDist, bestIndex } = nearestSlide();
-                if (!best || bestDist < 3) return;
+                if (!best || bestDist < SNAP_DEADZONE) return;
 
-                // Seam clone → real first (identical frame)
                 if (bestIndex === realCount) {
                     lenis.scrollTo(0, { immediate: true, force: true });
                     lastScroll = 0;
@@ -622,9 +644,8 @@
                 isSnapping = true;
                 lenis.scrollTo(best, {
                     duration: SNAP_DURATION,
-                    easing: easeOut,
-                    // Don't lock on touch — user can interrupt mid-snap
-                    lock: !isTouch,
+                    easing: easeOutQuart,
+                    lock: false,
                     onComplete: () => { isSnapping = false; },
                 });
             }
@@ -646,7 +667,6 @@
                     clearTimeout(snapTimer);
                     isSnapping = false;
                     requestAnimationFrame(() => {
-                        // Normalize seam clone → real first after wrap
                         const clone = slideEls[realCount];
                         if (clone && Math.abs(clone.getBoundingClientRect().top) < 8) {
                             lenis.scrollTo(0, { immediate: true, force: true });
@@ -663,7 +683,6 @@
                     return;
                 }
 
-                // Still flinging — keep free; only snap once nearly stopped
                 if (Math.abs(lastVelocity) > VEL_IDLE) {
                     clearTimeout(snapTimer);
                     return;
@@ -671,14 +690,14 @@
                 scheduleSnap();
             });
 
-            // The moment the finger lifts, try to snap ASAP once inertia dies
             window.addEventListener('touchend', () => {
                 if (!isTouch) return;
                 clearTimeout(snapTimer);
+                // Let inertia run; snap only once it's nearly stopped
                 snapTimer = setTimeout(() => {
                     if (Math.abs(lastVelocity) <= VEL_IDLE) snapToNearest();
                     else scheduleSnap();
-                }, 40);
+                }, 100);
             }, { passive: true });
 
             ['wheel', 'touchstart', 'keydown'].forEach(evt => {
@@ -722,7 +741,6 @@
         // Arrive under the branded veil, then fade it once the opening clip
         // has a real frame — no stacked long waits (those felt "extra long").
         (function arriveFromVeil() {
-            const veil = document.getElementById('enterVeil');
             const started = performance.now();
             const fromMosaic = (() => {
                 try { return sessionStorage.getItem('traversal-handoff') === '1'; }
@@ -730,22 +748,15 @@
             })();
             try { sessionStorage.removeItem('traversal-handoff'); } catch (_) {}
 
-            // Short settle only — most of the "loading" feel was leave+arrive stacked.
             const MIN_MS = fromMosaic ? 280 : 320;
             const MAX_MS = 1400;
             let revealed = false;
 
             function reveal() {
-                if (revealed || navigating) return;
+                if (revealed) return;
                 revealed = true;
                 requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        document.body.classList.remove('is-arriving');
-                        if (!veil) return;
-                        veil.classList.add('is-fading');
-                        void veil.offsetWidth;
-                        veil.classList.remove('active');
-                    });
+                    requestAnimationFrame(() => revealLanding(true));
                 });
             }
 
@@ -776,6 +787,25 @@
             }
             setTimeout(reveal, MAX_MS);
         })();
+
+        // iOS/Android back often restores this page from bfcache with the enter
+        // veil still up and navigating=true — that froze the loader forever.
+        window.addEventListener('pageshow', (e) => {
+            // First visit: let arriveFromVeil own the reveal.
+            // Back/forward restore: force the page awake again.
+            if (!e.persisted && !navigating) return;
+
+            navigating = false;
+            isSnapping = false;
+            touchActive = false;
+            revealLanding(true);
+            if (lenis) {
+                try { lenis.start(); } catch (_) {}
+                try { lenis.resize(); } catch (_) {}
+                try { lenis.scrollTo(0, { immediate: true, force: true }); } catch (_) {}
+                lastScroll = 0;
+            }
+        });
     </script>
 </body>
 </html>
