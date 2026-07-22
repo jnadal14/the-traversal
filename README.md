@@ -47,11 +47,15 @@ the-traversal/
 
 Put new files in `IMAGES/new/` with **URL-safe names** (e.g. `my-shot.jpg`, no spaces). Edit **`gallery-manifest.js`** and add a line where you want the image:
 
-`{ type: 'image', src: 'IMAGES/new/my-shot.jpg' },`
+`image('IMAGES/new/my-shot.jpg', 2200, 1458),`
+
+The last two numbers are the image's pixel width and height. They reserve the correct amount of space before the file loads, keeping the gallery stable while scrolling. On macOS, check them with:
+
+`sips -g pixelWidth -g pixelHeight IMAGES/new/my-shot.jpg`
 
 After adding large JPEGs, run **`./scripts/optimize-gallery-images.sh`** so pages load in a few seconds on real networks.
 
-Reorder by moving lines. Videos use `{ type: 'video', src: 'CLIPS/...' }`.
+Reorder by moving lines. Videos use `video('CLIPS/...')` and default to a 16:9 tile.
 
 ## Local Development
 
@@ -76,4 +80,3 @@ MIT License - See [LICENSE](LICENSE) for details.
 ---
 
 *© 2025 Jacob Nadal*
-

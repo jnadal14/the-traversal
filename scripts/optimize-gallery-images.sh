@@ -15,9 +15,9 @@ optimize_jpg() {
   echo "OK $f"
 }
 
-echo "Optimizing IMAGES/*.jpg and IMAGES/new/*.jpg …"
+echo "Optimizing ABOUT.jpg, IMAGES/*.jpg, and IMAGES/new/*.jpg …"
 shopt -s nullglob
-for f in IMAGES/*.jpg IMAGES/new/*.jpg; do
+for f in ABOUT.jpg IMAGES/*.jpg IMAGES/new/*.jpg; do
   optimize_jpg "$f"
 done
 echo "Done."
