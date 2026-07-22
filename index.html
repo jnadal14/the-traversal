@@ -237,10 +237,12 @@
             background: var(--bg);
             opacity: 0;
             visibility: hidden;
+            pointer-events: none;
         }
         .enter-veil.active {
             opacity: 1;
             visibility: visible;
+            pointer-events: auto;
         }
         /* First paint: solid cover, no fade-in flash. Fade only on leave. */
         body.is-arriving .enter-veil.active {
@@ -388,8 +390,8 @@
         // Landing slides — edit this list to change the infinite loop.
         // type: 'image' | 'video'.  sub is optional (leave '' to hide).
         const LANDING_SLIDES = [
-            { type: 'video', src: 'CLIPS/05_Icefileds_1.mp4',            title: 'The Icefields',   sub: '' },
-            { type: 'image', src: 'IMAGES/01.jpg',                        title: 'Takakkaw Falls',  sub: 'Yoho National Park' },
+            { type: 'video', src: 'CLIPS/05_Icefileds_1.mp4',            title: 'The Icefields',   sub: 'Icefields Parkway · Banff National Park' },
+            { type: 'image', src: 'IMAGES/01.jpg',                        title: ' Falls',  sub: 'Yoho National Park' },
             { type: 'image', src: 'IMAGES/new/cass-and-aiden.jpg',       title: 'Back to Me',      sub: 'Dirty Aesthetic · Cover Art' },
             { type: 'image', src: 'IMAGES/03.jpg',                        title: 'King\u2019s Peak', sub: 'Strathcona Provincial Park' },
             { type: 'video', src: 'CLIPS/03_Fire_lookout_1.mp4',         title: 'Hidden Lake Lookout', sub: 'North Cascades' },
@@ -412,11 +414,12 @@
         // jump to the matching real slide — always room to scroll both ways.
         const slidesEl = document.getElementById('slides');
         const frag = document.createDocumentFragment();
-        const N = LANDING_SLIDES.length;
+        // Don't name this `N` — Lenis's minified bundle declares a global `N`.
+        const SLIDE_COUNT = LANDING_SLIDES.length;
         const IDX_LAST_CLONE = 0;
         const IDX_FIRST_REAL = 1;
-        const IDX_LAST_REAL = N;
-        const IDX_FIRST_CLONE = N + 1;
+        const IDX_LAST_REAL = SLIDE_COUNT;
+        const IDX_FIRST_CLONE = SLIDE_COUNT + 1;
 
         function createSlide(item, displayIndex, opts) {
             const slide = document.createElement('section');
@@ -461,7 +464,7 @@
             return slide;
         }
 
-        frag.appendChild(createSlide(LANDING_SLIDES[N - 1], N - 1, { clone: 'last' }));
+        frag.appendChild(createSlide(LANDING_SLIDES[SLIDE_COUNT - 1], SLIDE_COUNT - 1, { clone: 'last' }));
         LANDING_SLIDES.forEach((item, i) => {
             frag.appendChild(createSlide(item, i));
         });
@@ -623,7 +626,7 @@
             const limit = typeof lenis.limit === 'number' ? lenis.limit : Infinity;
             // Top buffer = clone of last → jump to real last
             if (y < h * 0.5) {
-                const next = Math.min(y + N * h, limit);
+                const next = Math.min(y + SLIDE_COUNT * h, limit);
                 if (next <= y + 1) return; // layout not ready / clamp would no-op
                 wrapping = true;
                 lenis.scrollTo(next, { immediate: true, force: true });
@@ -633,8 +636,8 @@
                 return;
             }
             // Bottom buffer = clone of first → jump to real first
-            if (y > (N + 0.5) * h) {
-                const next = Math.max(0, y - N * h);
+            if (y > (SLIDE_COUNT + 0.5) * h) {
+                const next = Math.max(0, y - SLIDE_COUNT * h);
                 if (next >= y - 1) return;
                 wrapping = true;
                 lenis.scrollTo(next, { immediate: true, force: true });
