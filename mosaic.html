@@ -48,7 +48,7 @@
             align-items: center;
             justify-content: center;
             background: #0a0a0a;
-            transition: opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.65s;
+            transition: opacity 0.45s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.45s;
         }
 
         .mosaic-loader.done {
@@ -83,7 +83,7 @@
 
         body:not(.is-loading) .main-content {
             opacity: 1;
-            transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.05s;
+            transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         body.is-loading .bottom-nav {
@@ -107,6 +107,8 @@
             padding-top: max(var(--gap), env(safe-area-inset-top));
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            touch-action: pan-y;
             background: var(--bg-primary);
         }
 
@@ -124,6 +126,7 @@
             break-inside: avoid;
             display: block;
             background: #eee;
+            contain: paint;
         }
 
         .gallery-item img {
@@ -133,22 +136,22 @@
             transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
 
-        .gallery-item:hover img { transform: scale(1.04); }
-
         .gallery-video { break-inside: avoid; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
         .gallery-video video {
             width: 100%;
-            height: auto;
+            height: 100%;
             object-fit: cover;
             display: block;
             transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             cursor: pointer;
             background: #1a1a1a;
-            min-height: 120px;
         }
 
-        .gallery-video:hover video { transform: scale(1.04); }
+        @media (hover: hover) and (pointer: fine) {
+            .gallery-item:hover img,
+            .gallery-video:hover video { transform: scale(1.04); }
+        }
 
         /* ---------- About / Contact sheets (over mosaic) ---------- */
         /* pointer-events: none on the shell so wheel/touch still scrolls the mosaic */
@@ -504,7 +507,7 @@
             <button class="sheet-close" type="button" data-close-sheet aria-label="Close about">Close</button>
             <div class="about-wrapper">
                 <div class="about-photo">
-                    <img src="ABOUT.jpg" alt="Jacob Nadal">
+                    <img src="ABOUT.jpg" alt="Jacob Nadal" width="2200" height="1458" loading="lazy" decoding="async">
                 </div>
                 <div class="about-content">
                     <h2 id="about-title">About</h2>
@@ -570,28 +573,39 @@
             if (!grid || !items.length) return;
             const defaultAlt = 'The Traversal - Film Photography';
             const frag = document.createDocumentFragment();
-            let imageIndex = 0;
             items.forEach(entry => {
                 if (entry.type === 'image' && entry.src) {
                     const wrap = document.createElement('div');
                     wrap.className = 'gallery-item';
+                    if (entry.width && entry.height) {
+                        wrap.style.aspectRatio = `${entry.width} / ${entry.height}`;
+                    }
                     const img = document.createElement('img');
-                    img.src = entry.src;
                     img.alt = entry.alt || defaultAlt;
-                    img.loading = imageIndex < 6 ? 'eager' : 'lazy';
+                    if (entry.width && entry.height) {
+                        img.width = entry.width;
+                        img.height = entry.height;
+                    }
+                    img.loading = 'lazy';
                     img.decoding = 'async';
-                    imageIndex++;
+                    img.src = entry.src;
                     wrap.appendChild(img);
                     frag.appendChild(wrap);
                 } else if (entry.type === 'video' && entry.src) {
                     const wrap = document.createElement('div');
                     wrap.className = 'gallery-item gallery-video';
+                    const width = entry.width || 16;
+                    const height = entry.height || 9;
+                    wrap.style.aspectRatio = `${width} / ${height}`;
                     const video = document.createElement('video');
                     video.dataset.gallerySrc = entry.src;
+                    video.width = width;
+                    video.height = height;
                     video.muted = true;
                     video.loop = true;
                     video.setAttribute('playsinline', '');
                     video.setAttribute('preload', 'none');
+                    video.setAttribute('disablepictureinpicture', '');
                     wrap.appendChild(video);
                     frag.appendChild(wrap);
                 }
@@ -604,8 +618,8 @@
         (function mosaicEntry() {
             const loader = document.getElementById('mosaicLoader');
             const started = performance.now();
-            const MIN_MS = 700;
-            const MAX_MS = 1800;
+            const MIN_MS = 320;
+            const MAX_MS = 1400;
             let done = false;
 
             function reveal() {
@@ -623,19 +637,29 @@
                 setTimeout(reveal, wait);
             }
 
-            const firstImgs = Array.from(
-                document.querySelectorAll('#gallery-grid .gallery-item img')
-            ).slice(0, 4);
+            function loadVisibleImagesFirst() {
+                const criticalImages = Array.from(
+                    document.querySelectorAll('#gallery-grid .gallery-item img')
+                ).map(img => ({ img, rect: img.getBoundingClientRect() }))
+                    .filter(({ rect }) => rect.top < window.innerHeight * 1.15 && rect.bottom > 0)
+                    .sort((a, b) => a.rect.top - b.rect.top || a.rect.left - b.rect.left)
+                    .slice(0, 4)
+                    .map(({ img }) => img);
 
-            if (!firstImgs.length) {
-                tryReveal();
-            } else {
-                let remaining = firstImgs.length;
+                if (!criticalImages.length) {
+                    tryReveal();
+                    return;
+                }
+
+                let remaining = criticalImages.length;
                 const onOne = () => {
                     remaining -= 1;
                     if (remaining <= 0) tryReveal();
                 };
-                firstImgs.forEach(img => {
+
+                criticalImages.forEach(img => {
+                    img.loading = 'eager';
+                    img.fetchPriority = 'high';
                     if (img.complete && img.naturalWidth > 0) onOne();
                     else {
                         img.addEventListener('load', onOne, { once: true });
@@ -643,6 +667,8 @@
                     }
                 });
             }
+
+            requestAnimationFrame(() => requestAnimationFrame(loadVisibleImagesFirst));
 
             setTimeout(reveal, MAX_MS);
         })();
@@ -658,6 +684,7 @@
                 if (leaving) return;
                 leaving = true;
                 try { sessionStorage.setItem('traversal-handoff', '1'); } catch (_) {}
+                document.querySelectorAll('#gallery-grid video').forEach(video => video.pause());
 
                 if (loader) {
                     loader.style.transition = 'none';
@@ -677,6 +704,7 @@
         const aboutSheet = document.getElementById('about-sheet');
         const contactSheet = document.getElementById('contact-sheet');
         const sheets = { about: aboutSheet, contact: contactSheet };
+        let galleryVideos = [];
 
         function setView(view) {
             if (view === 'work') view = 'overview'; // Work hidden for now
@@ -691,6 +719,9 @@
                 el.classList.toggle('open', open);
                 el.setAttribute('aria-hidden', open ? 'false' : 'true');
             });
+
+            if (view === 'overview') requestAnimationFrame(syncGalleryVideoPlayback);
+            else galleryVideos.forEach(video => video.pause());
         }
 
         navLinks.forEach(link => {
@@ -751,10 +782,14 @@
             img.addEventListener('click', () => {
                 lightboxImg.src = img.src;
                 lightbox.classList.add('active');
+                galleryVideos.forEach(video => video.pause());
             });
         });
 
-        function closeLightbox() { lightbox.classList.remove('active'); }
+        function closeLightbox() {
+            lightbox.classList.remove('active');
+            requestAnimationFrame(syncGalleryVideoPlayback);
+        }
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -766,9 +801,9 @@
             }
         });
 
-        // Gallery videos: defer src until near viewport
-        const videos = document.querySelectorAll('#gallery-grid .gallery-video video');
+        // Gallery videos: attach shortly before use and decode only while visible.
         const overviewPanel = document.getElementById('overview');
+        galleryVideos = Array.from(document.querySelectorAll('#gallery-grid .gallery-video video'));
 
         function forceFirstFrame(video) {
             if (!video.src) return;
@@ -789,25 +824,30 @@
             }, { once: true });
         }
 
-        if (overviewPanel && videos.length) {
-            const videoObserver = new IntersectionObserver((entries) => {
-                entries.forEach((ent) => { if (ent.isIntersecting) attachGalleryVideoWhenNearViewport(ent.target); });
-            }, { root: overviewPanel, rootMargin: '80% 0px', threshold: 0 });
-            videos.forEach((v) => videoObserver.observe(v));
+        function galleryVideoIsVisible(video) {
+            const rect = video.getBoundingClientRect();
+            const visiblePixels = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+            return Math.max(0, visiblePixels) / Math.max(1, rect.height) > 0.12;
         }
 
-        function playVisibleVideos() {
-            videos.forEach(video => {
-                if (!video.src) return;
-                const rect = video.getBoundingClientRect();
-                const inView = rect.top < window.innerHeight && rect.bottom > 0;
-                if (inView) {
-                    if (video.readyState >= 2) {
-                        video.play().catch(() => {});
-                    } else {
+        function galleryCanPlay() {
+            return !document.hidden
+                && !aboutSheet.classList.contains('open')
+                && !contactSheet.classList.contains('open')
+                && !lightbox.classList.contains('active');
+        }
+
+        function syncGalleryVideoPlayback() {
+            const canPlay = galleryCanPlay();
+            galleryVideos.forEach(video => {
+                if (canPlay && galleryVideoIsVisible(video)) {
+                    attachGalleryVideoWhenNearViewport(video);
+                    if (video.readyState >= 2) video.play().catch(() => {});
+                    else {
                         video.addEventListener('canplay', () => {
-                            const r = video.getBoundingClientRect();
-                            if (r.top < window.innerHeight && r.bottom > 0) video.play().catch(() => {});
+                            if (galleryCanPlay() && galleryVideoIsVisible(video)) {
+                                video.play().catch(() => {});
+                            }
                         }, { once: true });
                     }
                 } else {
@@ -816,43 +856,78 @@
             });
         }
 
-        if (overviewPanel) overviewPanel.addEventListener('scroll', playVisibleVideos);
-        setTimeout(playVisibleVideos, 500);
-        setTimeout(playVisibleVideos, 1500);
-        setTimeout(playVisibleVideos, 3000);
+        if (overviewPanel && galleryVideos.length && 'IntersectionObserver' in window) {
+            const galleryPreloadObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) attachGalleryVideoWhenNearViewport(entry.target);
+                });
+            }, { root: overviewPanel, rootMargin: '70% 0px', threshold: 0 });
+            const galleryPlaybackObserver = new IntersectionObserver(syncGalleryVideoPlayback, {
+                root: overviewPanel,
+                threshold: [0, 0.12],
+            });
+            galleryVideos.forEach(video => {
+                galleryPreloadObserver.observe(video);
+                galleryPlaybackObserver.observe(video);
+            });
+        } else if (overviewPanel) {
+            let galleryScrollFrame = 0;
+            overviewPanel.addEventListener('scroll', () => {
+                if (galleryScrollFrame) return;
+                galleryScrollFrame = requestAnimationFrame(() => {
+                    galleryScrollFrame = 0;
+                    syncGalleryVideoPlayback();
+                });
+            }, { passive: true });
+        }
 
-        videos.forEach(video => {
+        document.addEventListener('visibilitychange', syncGalleryVideoPlayback);
+        requestAnimationFrame(syncGalleryVideoPlayback);
+
+        galleryVideos.forEach(video => {
             video.setAttribute('playsinline', '');
             video.style.cursor = 'pointer';
 
-            let touchStartY = 0;
-            let touchStartTime = 0;
+            let pointerStartY = 0;
             let hasMoved = false;
 
-            video.addEventListener('touchstart', (e) => {
-                touchStartY = e.touches[0].clientY;
-                touchStartTime = Date.now();
+            video.addEventListener('pointerdown', (e) => {
+                pointerStartY = e.clientY;
                 hasMoved = false;
             }, { passive: true });
 
-            video.addEventListener('touchmove', (e) => {
-                if (Math.abs(e.touches[0].clientY - touchStartY) > 10) hasMoved = true;
+            video.addEventListener('pointermove', (e) => {
+                if (Math.abs(e.clientY - pointerStartY) > 10) hasMoved = true;
             }, { passive: true });
 
             const handleVideoTap = (e) => {
-                if (e.type === 'touchend' && (hasMoved || Date.now() - touchStartTime > 500)) return;
+                if (hasMoved) return;
                 e.preventDefault();
                 e.stopPropagation();
+                attachGalleryVideoWhenNearViewport(video);
                 video.muted = false;
+                video.play().catch(() => {});
                 if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
-                else if (video.requestFullscreen) video.requestFullscreen();
+                else if (video.requestFullscreen) {
+                    const fullscreenPromise = video.requestFullscreen();
+                    if (fullscreenPromise && fullscreenPromise.catch) fullscreenPromise.catch(() => {});
+                }
                 else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
                 else if (video.mozRequestFullScreen) video.mozRequestFullScreen();
-                else video.play();
             };
 
             video.addEventListener('click', handleVideoTap);
-            video.addEventListener('touchend', handleVideoTap);
+            video.addEventListener('webkitendfullscreen', () => {
+                video.muted = true;
+                syncGalleryVideoPlayback();
+            });
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                galleryVideos.forEach(video => { video.muted = true; });
+                syncGalleryVideoPlayback();
+            }
         });
     </script>
 </body>
