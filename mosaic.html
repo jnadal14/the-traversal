@@ -7,11 +7,11 @@
     <link rel="icon" type="image/jpeg" href="FAVICON.jpg">
     <link rel="apple-touch-icon" href="FAVICON.jpg">
     <link rel="prefetch" href="index.html">
-    <link rel="prefetch" href="CLIPS/05_Icefileds_1.mp4" as="video">
+    <link rel="prefetch" href="CLIPS/05_Icefileds_1.mp4?v=20260728" as="video">
     <link rel="preload" href="IMAGES/01.jpg" as="image">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Darker+Grotesque:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&amp;family=Darker+Grotesque:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-primary: #ffffff;
@@ -26,8 +26,15 @@
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        *:focus { outline: none !important; }
-        button:focus, a:focus, img:focus, video:focus { outline: none !important; box-shadow: none !important; }
+        :focus-visible {
+            outline: 2px solid currentColor !important;
+            outline-offset: 4px;
+        }
+        .gallery-item img:focus-visible,
+        .gallery-video video:focus-visible {
+            outline-color: #ffffff !important;
+            outline-offset: -4px;
+        }
 
         html, body { height: 100%; overflow: hidden; }
 
@@ -95,7 +102,7 @@
             position: relative;
             width: 100%;
             height: 100vh;
-            height: 100svh;
+            height: 100dvh;
             opacity: 0;
         }
 
@@ -191,6 +198,7 @@
             pointer-events: auto;
             width: min(920px, 100%);
             max-height: min(78vh, 780px);
+            max-height: min(78dvh, 780px);
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             background: rgba(255, 255, 255, 0.88);
@@ -233,18 +241,24 @@
         }
 
         .sheet-close {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            display: block;
+            width: max-content;
+            margin: -0.5rem -0.5rem 0.25rem auto;
             font-family: var(--font-body);
             font-size: 0.8rem;
             letter-spacing: 0.12em;
             text-transform: uppercase;
             color: var(--text-muted);
-            background: none;
+            background: rgba(255, 255, 255, 0.82);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
             border: none;
+            border-radius: 999px;
             cursor: pointer;
-            padding: 0.4rem 0.5rem;
+            padding: 0.4rem 0.65rem;
             transition: color 0.25s ease;
         }
 
@@ -431,11 +445,13 @@
         }
         .lightbox.active { opacity: 1; visibility: visible; }
         .lightbox img { max-width: 92vw; max-height: 92vh; object-fit: contain; transform: scale(0.96); transition: transform 0.4s ease; }
+        .lightbox img { max-height: 92dvh; }
         .lightbox.active img { transform: scale(1); }
         .lightbox-close {
             position: absolute;
             top: max(1.5rem, env(safe-area-inset-top));
             right: 1.5rem;
+            z-index: 2;
             font-size: 0.9rem; letter-spacing: 0.1em;
             color: rgba(255, 255, 255, 0.7);
             background: none; border: none; cursor: pointer;
@@ -456,6 +472,7 @@
             .about-content { text-align: center; }
             .sheet-card {
                 max-height: min(72vh, 680px);
+                max-height: min(72dvh, 680px);
                 border-radius: 14px;
             }
         }
@@ -496,7 +513,7 @@
     </div>
 
     <main class="main-content">
-        <section id="overview">
+        <section id="overview" aria-label="Photography overview">
             <div class="gallery-grid" id="gallery-grid"></div>
         </section>
     </main>
@@ -543,7 +560,7 @@
         </div>
     </div>
 
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" aria-label="Portfolio navigation">
         <a href="index.html" class="nav-home" id="navHome" aria-label="Back to landing">
             <svg class="nav-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <path d="M3 10.5 12 3l9 7.5"/>
@@ -559,29 +576,34 @@
         </ul>
     </nav>
 
-    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-        <button class="lightbox-close">CLOSE</button>
-        <img src="" alt="Enlarged view" id="lightboxImg">
+    <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Enlarged photograph" aria-hidden="true" onclick="closeLightbox()">
+        <button class="lightbox-close" type="button" aria-label="Close enlarged photograph">CLOSE</button>
+        <img src="" alt="" id="lightboxImg">
     </div>
 
-    <script src="gallery-manifest.js"></script>
+    <script src="gallery-manifest.js?v=20260728-2"></script>
     <script>
         // Build overview gallery from GALLERY_MANIFEST
         (function buildGalleryFromManifest() {
             const grid = document.getElementById('gallery-grid');
             const items = window.GALLERY_MANIFEST || [];
             if (!grid || !items.length) return;
-            const defaultAlt = 'The Traversal - Film Photography';
             const frag = document.createDocumentFragment();
+            let imageOrdinal = 0;
+            let videoOrdinal = 0;
             items.forEach(entry => {
                 if (entry.type === 'image' && entry.src) {
+                    imageOrdinal += 1;
                     const wrap = document.createElement('div');
                     wrap.className = 'gallery-item';
                     if (entry.width && entry.height) {
                         wrap.style.aspectRatio = `${entry.width} / ${entry.height}`;
                     }
                     const img = document.createElement('img');
-                    img.alt = entry.alt || defaultAlt;
+                    img.alt = entry.alt || `The Traversal photograph ${String(imageOrdinal).padStart(2, '0')}`;
+                    img.tabIndex = 0;
+                    img.setAttribute('role', 'button');
+                    img.setAttribute('aria-label', `Open ${img.alt}`);
                     if (entry.width && entry.height) {
                         img.width = entry.width;
                         img.height = entry.height;
@@ -592,6 +614,7 @@
                     wrap.appendChild(img);
                     frag.appendChild(wrap);
                 } else if (entry.type === 'video' && entry.src) {
+                    videoOrdinal += 1;
                     const wrap = document.createElement('div');
                     wrap.className = 'gallery-item gallery-video';
                     const width = entry.width || 16;
@@ -602,7 +625,12 @@
                     video.width = width;
                     video.height = height;
                     video.muted = true;
+                    video.defaultMuted = true;
                     video.loop = true;
+                    video.tabIndex = 0;
+                    video.setAttribute('role', 'button');
+                    video.setAttribute('aria-label', `Play gallery film ${String(videoOrdinal).padStart(2, '0')} fullscreen`);
+                    if (entry.poster) video.poster = entry.poster;
                     video.setAttribute('playsinline', '');
                     video.setAttribute('preload', 'none');
                     video.setAttribute('disablepictureinpicture', '');
@@ -705,10 +733,14 @@
         const contactSheet = document.getElementById('contact-sheet');
         const sheets = { about: aboutSheet, contact: contactSheet };
         let galleryVideos = [];
+        let activeView = 'overview';
+        let sheetReturnFocus = null;
 
         function setView(view) {
             if (view === 'work') view = 'overview'; // Work hidden for now
             if (!['overview', 'about', 'contact'].includes(view)) view = 'overview';
+            const viewChanged = view !== activeView;
+            const previousView = activeView;
 
             navLinks.forEach(l => l.classList.remove('active'));
             const active = document.querySelector(`.nav-links [data-view="${view}"]`);
@@ -722,6 +754,24 @@
 
             if (view === 'overview') requestAnimationFrame(syncGalleryVideoPlayback);
             else galleryVideos.forEach(video => video.pause());
+
+            if (viewChanged) {
+                if (view !== 'overview') {
+                    sheetReturnFocus = document.activeElement;
+                    requestAnimationFrame(() => {
+                        const closeButton = sheets[view]?.querySelector('[data-close-sheet]');
+                        if (closeButton) {
+                            try { closeButton.focus({ preventScroll: true }); }
+                            catch (_) { closeButton.focus(); }
+                        }
+                    });
+                } else if (previousView !== 'overview' && sheetReturnFocus?.focus) {
+                    try { sheetReturnFocus.focus({ preventScroll: true }); }
+                    catch (_) { sheetReturnFocus.focus(); }
+                    sheetReturnFocus = null;
+                }
+            }
+            activeView = view;
         }
 
         navLinks.forEach(link => {
@@ -778,20 +828,57 @@
         // Lightbox
         const lightbox = document.getElementById('lightbox');
         const lightboxImg = document.getElementById('lightboxImg');
+        const lightboxClose = lightbox.querySelector('.lightbox-close');
+        let lightboxReturnFocus = null;
+        let lightboxClearTimer = 0;
+
+        function openLightbox(img) {
+            clearTimeout(lightboxClearTimer);
+            lightboxReturnFocus = img;
+            lightboxImg.src = img.currentSrc || img.src;
+            lightboxImg.alt = img.alt;
+            lightbox.classList.add('active');
+            lightbox.setAttribute('aria-hidden', 'false');
+            galleryVideos.forEach(video => video.pause());
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => lightboxClose.focus());
+            });
+        }
+
         document.querySelectorAll('#gallery-grid .gallery-item img').forEach(img => {
-            img.addEventListener('click', () => {
-                lightboxImg.src = img.src;
-                lightbox.classList.add('active');
-                galleryVideos.forEach(video => video.pause());
+            img.addEventListener('click', () => openLightbox(img));
+            img.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    openLightbox(img);
+                }
             });
         });
 
         function closeLightbox() {
+            if (!lightbox.classList.contains('active')) return;
             lightbox.classList.remove('active');
+            lightbox.setAttribute('aria-hidden', 'true');
             requestAnimationFrame(syncGalleryVideoPlayback);
+            if (lightboxReturnFocus?.focus) {
+                try { lightboxReturnFocus.focus({ preventScroll: true }); }
+                catch (_) { lightboxReturnFocus.focus(); }
+            }
+            lightboxReturnFocus = null;
+            lightboxClearTimer = setTimeout(() => {
+                if (!lightbox.classList.contains('active')) {
+                    lightboxImg.removeAttribute('src');
+                    lightboxImg.alt = '';
+                }
+            }, 450);
         }
 
         document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab' && lightbox.classList.contains('active')) {
+                e.preventDefault();
+                lightboxClose.focus();
+                return;
+            }
             if (e.key === 'Escape') {
                 if (lightbox.classList.contains('active')) closeLightbox();
                 else if (aboutSheet.classList.contains('open') || contactSheet.classList.contains('open')) {
@@ -803,6 +890,7 @@
 
         // Gallery videos: attach shortly before use and decode only while visible.
         const overviewPanel = document.getElementById('overview');
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         galleryVideos = Array.from(document.querySelectorAll('#gallery-grid .gallery-video video'));
 
         function forceFirstFrame(video) {
@@ -831,7 +919,8 @@
         }
 
         function galleryCanPlay() {
-            return !document.hidden
+            return !prefersReducedMotion
+                && !document.hidden
                 && !aboutSheet.classList.contains('open')
                 && !contactSheet.classList.contains('open')
                 && !lightbox.classList.contains('active');
@@ -891,6 +980,12 @@
             let pointerStartY = 0;
             let hasMoved = false;
 
+            function restoreInlineVideo() {
+                video.controls = false;
+                video.muted = true;
+                syncGalleryVideoPlayback();
+            }
+
             video.addEventListener('pointerdown', (e) => {
                 pointerStartY = e.clientY;
                 hasMoved = false;
@@ -905,27 +1000,64 @@
                 e.preventDefault();
                 e.stopPropagation();
                 attachGalleryVideoWhenNearViewport(video);
+                video.controls = true;
                 video.muted = false;
                 video.play().catch(() => {});
-                if (video.webkitEnterFullscreen) video.webkitEnterFullscreen();
-                else if (video.requestFullscreen) {
-                    const fullscreenPromise = video.requestFullscreen();
-                    if (fullscreenPromise && fullscreenPromise.catch) fullscreenPromise.catch(() => {});
+
+                let fullscreenPromise = null;
+                let requested = false;
+                try {
+                    if (video.webkitEnterFullscreen) {
+                        requested = true;
+                        video.webkitEnterFullscreen();
+                    } else if (video.requestFullscreen) {
+                        requested = true;
+                        fullscreenPromise = video.requestFullscreen();
+                    } else if (video.webkitRequestFullscreen) {
+                        requested = true;
+                        fullscreenPromise = video.webkitRequestFullscreen();
+                    } else if (video.mozRequestFullScreen) {
+                        requested = true;
+                        fullscreenPromise = video.mozRequestFullScreen();
+                    }
+                } catch (_) {
+                    restoreInlineVideo();
+                    return;
                 }
-                else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
-                else if (video.mozRequestFullScreen) video.mozRequestFullScreen();
+
+                if (!requested) {
+                    restoreInlineVideo();
+                    return;
+                }
+                if (fullscreenPromise && fullscreenPromise.catch) {
+                    fullscreenPromise.catch(restoreInlineVideo);
+                }
+                setTimeout(() => {
+                    const fullscreenActive =
+                        document.fullscreenElement === video
+                        || video.webkitDisplayingFullscreen === true;
+                    if (!fullscreenActive) restoreInlineVideo();
+                }, 700);
             };
 
             video.addEventListener('click', handleVideoTap);
+            video.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    hasMoved = false;
+                    handleVideoTap(event);
+                }
+            });
             video.addEventListener('webkitendfullscreen', () => {
-                video.muted = true;
-                syncGalleryVideoPlayback();
+                restoreInlineVideo();
             });
         });
 
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement) {
-                galleryVideos.forEach(video => { video.muted = true; });
+                galleryVideos.forEach(video => {
+                    video.controls = false;
+                    video.muted = true;
+                });
                 syncGalleryVideoPlayback();
             }
         });

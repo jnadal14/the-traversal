@@ -7,7 +7,15 @@
  */
 window.GALLERY_MANIFEST = (() => {
     const image = (src, width, height, alt) => ({ type: 'image', src, width, height, alt });
-    const video = (src) => ({ type: 'video', src, width: 16, height: 9 });
+    const video = (src) => ({
+        type: 'video',
+        src: `${src}?v=20260728`,
+        poster: src
+            .replace(/^CLIPS\//, 'IMAGES/video-posters/')
+            .replace(/\.mp4$/i, '.jpg'),
+        width: 16,
+        height: 9,
+    });
 
     return [
         image('IMAGES/01.jpg', 2000, 2500),
