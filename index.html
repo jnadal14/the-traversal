@@ -57,11 +57,6 @@
         html.native-snap { scroll-snap-type: y mandatory; }
         html.native-snap .slide {
             scroll-snap-align: start;
-            scroll-snap-stop: always;
-        }
-        html.native-snap.is-recentering {
-            scroll-snap-type: none !important;
-            scroll-behavior: auto !important;
         }
 
         a { color: inherit; text-decoration: none; }
@@ -72,8 +67,8 @@
         .slide {
             position: relative;
             width: 100%;
+            /* Keep the slide box stable while iOS Safari shows/hides its bars. */
             height: 100vh;
-            height: 100dvh;
             overflow: hidden;
             overflow: clip;
             contain: paint;
@@ -101,6 +96,15 @@
             object-position: center center;
             display: block;
             background: #050505;
+        }
+
+        .slide-media video {
+            pointer-events: none;
+        }
+
+        .slide-media video::-webkit-media-controls-start-playback-button {
+            display: none !important;
+            -webkit-appearance: none;
         }
 
         .slide-media.media-focus-left img,
@@ -321,6 +325,23 @@
 
             .brand-mark .tagline { display: none; }
 
+            /* Avoid expensive fixed-element blending/composited transforms over
+               video; both are common sources of Safari scroll flashing. */
+            .top-bar,
+            .hint {
+                mix-blend-mode: normal;
+            }
+
+            .hint {
+                animation: none;
+            }
+
+            .slide-media {
+                will-change: auto;
+                backface-visibility: visible;
+                transform: none;
+            }
+
             .slide-caption {
                 flex-direction: column;
                 align-items: flex-start;
@@ -433,20 +454,27 @@
 
         const MOSAIC_URL = 'mosaic.html';
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const isTouch =
+            window.matchMedia('(pointer: coarse)').matches ||
+            (navigator.maxTouchPoints || 0) > 0;
+        const isMobileLayout = window.matchMedia('(max-width: 768px)').matches;
+        const useNativeScroll = reduceMotion || isTouch || isMobileLayout;
+        // Safari gets a finite, compositor-driven list. Repositioning a long
+        // page during touch momentum is what caused the mobile jump/flicker.
+        const useInfiniteLoop = !useNativeScroll;
 
         // Always start from the first real slide on (re)load.
         if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 
         // ---------- Build slides ----------
-        // Keep three complete runs in the document and begin in the middle one.
-        // We recenter between matching runs long before the browser can touch a
-        // real scroll boundary, so even a fast direction reversal stays infinite.
+        // Desktop keeps three complete runs for the infinite loop. Mobile builds
+        // one finite run so Safari never has to remap the page during momentum.
         const slidesEl = document.getElementById('slides');
         const frag = document.createDocumentFragment();
         // Don't name this `N` — Lenis's minified bundle declares a global `N`.
         const SLIDE_COUNT = LANDING_SLIDES.length;
-        const LOOP_COPIES = 3;
-        const MIDDLE_COPY = 1;
+        const LOOP_COPIES = useInfiniteLoop ? 3 : 1;
+        const MIDDLE_COPY = useInfiniteLoop ? 1 : 0;
         const IDX_FIRST_REAL = SLIDE_COUNT * MIDDLE_COPY;
 
         function createSlide(item, displayIndex, opts = {}) {
@@ -472,20 +500,25 @@
                 v.defaultMuted = true;
                 v.loop = true;
                 v.autoplay = Boolean(opts.priority) && !reduceMotion;
+                v.controls = false;
                 v.setAttribute('aria-hidden', 'true');
                 v.setAttribute('muted', '');
+                v.setAttribute('loop', '');
                 v.setAttribute('playsinline', '');
                 v.setAttribute('webkit-playsinline', '');
+                v.playsInline = true;
+                if (opts.priority && !reduceMotion) v.setAttribute('autoplay', '');
                 v.setAttribute('preload', opts.priority ? 'auto' : 'none');
                 v.setAttribute('disablepictureinpicture', '');
                 if (item.poster) v.poster = item.poster;
-                v.addEventListener('loadeddata', markVideoFrameReady, { once: true });
+                // Do not uncover Safari's native video surface until playback
+                // actually begins; a loaded-but-blocked video shows a play icon.
                 v.addEventListener('playing', markVideoFrameReady, { once: true });
 
                 // Every copy of the opening clip needs a drawable frame before
                 // Safari reaches it. Metadata preloading is cheap because all
                 // three elements share the same cached source response.
-                const isLoopOpeningVideo = displayIndex === 0;
+                const isLoopOpeningVideo = useInfiniteLoop && displayIndex === 0;
                 if (opts.priority || isLoopOpeningVideo) {
                     v.src = item.src;
                     if (!opts.priority) v.preload = 'metadata';
@@ -600,11 +633,7 @@
         });
         slidesEl.addEventListener('click', () => { if (!moved) enterSite(); });
 
-        // ---------- Lenis smooth scroll (buffered seamless loop) ----------
-        const isTouch =
-            window.matchMedia('(pointer: coarse)').matches ||
-            (navigator.maxTouchPoints || 0) > 0;
-        const useNativeScroll = reduceMotion || isTouch;
+        // ---------- Desktop smooth scroll / native mobile scroll ----------
         document.documentElement.classList.toggle('native-snap', useNativeScroll);
         let lastScroll = 0;
         let wrapping = false;
@@ -612,7 +641,6 @@
         let touchActive = false;
         let lastVelocity = 0;
         let nativeRecenterTimer = 0;
-        let nativeRecenterCleanupTimer = 0;
         // Don't remap until the first real slide is seated — otherwise a 0-height
         // layout pass can clamp wraps forever and freeze the main thread.
         let loopReady = false;
@@ -674,6 +702,9 @@
             touchActive = true;
             isSnapping = false;
             clearTimeout(nativeRecenterTimer);
+            // A real touch is also a valid media gesture on iOS. This recovers
+            // autoplay when Safari deferred it during a cold/private load.
+            syncLandingVideos();
         }, { passive: true });
         window.addEventListener('touchend', () => {
             touchActive = false;
@@ -695,20 +726,7 @@
                 lenis.scrollTo(y, { immediate: true, force: true });
                 return;
             }
-
-            const root = document.documentElement;
-            if (useNativeScroll) root.classList.add('is-recentering');
             window.scrollTo({ top: y, left: 0, behavior: 'auto' });
-            if (useNativeScroll) {
-                clearTimeout(nativeRecenterCleanupTimer);
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        nativeRecenterCleanupTimer = setTimeout(() => {
-                            root.classList.remove('is-recentering');
-                        }, 120);
-                    });
-                });
-            }
         }
 
         function syncMatchingLoopVideo(fromY, toY, h) {
@@ -726,7 +744,7 @@
         }
 
         function normalizeLoop() {
-            if (!loopReady || wrapping || isSnapping || (useNativeScroll && touchActive)) return;
+            if (!useInfiniteLoop || !loopReady || wrapping || isSnapping || touchActive) return;
             const h = slideHeight();
             if (h < 80) return;
             const y = currentScroll();
@@ -761,7 +779,7 @@
         }
 
         function scheduleNativeRecenter(delay = 180) {
-            if (!useNativeScroll) return;
+            if (!useNativeScroll || !useInfiniteLoop) return;
             clearTimeout(nativeRecenterTimer);
             nativeRecenterTimer = setTimeout(() => {
                 if (touchActive) return;
