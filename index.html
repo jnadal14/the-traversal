@@ -108,6 +108,21 @@
             object-position: left center;
         }
 
+        /* Safari can briefly paint a video element black on a cold/private load,
+           even when the native poster attribute is present. Keep a real image
+           above it until the browser confirms that a video frame is drawable. */
+        .slide-media .video-poster {
+            z-index: 1;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity 0.18s linear;
+        }
+
+        .slide.video-frame-ready .video-poster {
+            opacity: 0;
+            visibility: hidden;
+        }
+
         /* Subtle vignette so captions stay legible */
         .slide::after {
             content: '';
@@ -410,9 +425,9 @@
             { type: 'image', src: 'IMAGES/01.jpg',                        title: 'Takakkaw Falls', sub: 'Yoho National Park' },
             { type: 'image', src: 'IMAGES/new/cass-and-aiden.jpg',       title: 'Back to Me',      sub: 'Dirty Aesthetic · Cover Art' },
             { type: 'image', src: 'IMAGES/03.jpg',                        title: 'King\u2019s Peak', sub: 'Strathcona Provincial Park' },
-            { type: 'video', src: 'CLIPS/03_Fire_lookout_1.mp4?v=20260728', title: 'Hidden Lake Lookout', sub: 'North Cascades' },
+            { type: 'video', src: 'CLIPS/03_Fire_lookout_1.mp4?v=20260728', poster: 'IMAGES/video-posters/03_Fire_lookout_1.jpg', title: 'Hidden Lake Lookout', sub: 'North Cascades' },
             { type: 'image', src: 'IMAGES/new/man-under-snowy-mountain.jpg', title: 'Whistler',    sub: 'Avalanche Safety Training' },
-            { type: 'video', src: 'CLIPS/02_SAS_1.mp4?v=20260728',      title: 'Saskatchewan',    sub: 'Windmill', focus: 'left' },
+            { type: 'video', src: 'CLIPS/02_SAS_1.mp4?v=20260728', poster: 'IMAGES/video-posters/02_SAS_1.jpg', title: 'Saskatchewan', sub: 'Windmill', focus: 'left' },
             { type: 'image', src: 'IMAGES/06.jpg',                        title: 'Kokanee Glacier', sub: 'Provincial Park' },
         ];
 
@@ -448,6 +463,11 @@
 
             if (item.type === 'video') {
                 const v = document.createElement('video');
+                const markVideoFrameReady = () => {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => slide.classList.add('video-frame-ready'));
+                    });
+                };
                 v.muted = true;
                 v.defaultMuted = true;
                 v.loop = true;
@@ -459,6 +479,8 @@
                 v.setAttribute('preload', opts.priority ? 'auto' : 'none');
                 v.setAttribute('disablepictureinpicture', '');
                 if (item.poster) v.poster = item.poster;
+                v.addEventListener('loadeddata', markVideoFrameReady, { once: true });
+                v.addEventListener('playing', markVideoFrameReady, { once: true });
 
                 // Every copy of the opening clip needs a drawable frame before
                 // Safari reaches it. Metadata preloading is cheap because all
@@ -471,6 +493,17 @@
                     v.dataset.src = item.src;
                 }
                 media.appendChild(v);
+                if (item.poster) {
+                    const poster = document.createElement('img');
+                    poster.className = 'video-poster';
+                    poster.src = item.poster;
+                    poster.alt = '';
+                    poster.setAttribute('aria-hidden', 'true');
+                    poster.loading = opts.priority ? 'eager' : 'lazy';
+                    poster.decoding = 'async';
+                    if (opts.priority) poster.fetchPriority = 'high';
+                    media.appendChild(poster);
+                }
             } else {
                 const img = document.createElement('img');
                 img.src = item.src;
@@ -579,6 +612,7 @@
         let touchActive = false;
         let lastVelocity = 0;
         let nativeRecenterTimer = 0;
+        let nativeRecenterCleanupTimer = 0;
         // Don't remap until the first real slide is seated — otherwise a 0-height
         // layout pass can clamp wraps forever and freeze the main thread.
         let loopReady = false;
@@ -666,8 +700,13 @@
             if (useNativeScroll) root.classList.add('is-recentering');
             window.scrollTo({ top: y, left: 0, behavior: 'auto' });
             if (useNativeScroll) {
+                clearTimeout(nativeRecenterCleanupTimer);
                 requestAnimationFrame(() => {
-                    requestAnimationFrame(() => root.classList.remove('is-recentering'));
+                    requestAnimationFrame(() => {
+                        nativeRecenterCleanupTimer = setTimeout(() => {
+                            root.classList.remove('is-recentering');
+                        }, 120);
+                    });
                 });
             }
         }
@@ -692,8 +731,11 @@
             if (h < 80) return;
             const y = currentScroll();
             const runHeight = SLIDE_COUNT * h;
-            const upperRecenterPoint = (SLIDE_COUNT - 0.5) * h;
-            const lowerRecenterPoint = (SLIDE_COUNT * 2 - 0.5) * h;
+            // Stay in the identical outer run for a few slides before remapping.
+            // This keeps the jump away from the opening-video/Kokanee boundary,
+            // where iOS momentum and video painting can otherwise fight snapping.
+            const upperRecenterPoint = (SLIDE_COUNT - 2.5) * h;
+            const lowerRecenterPoint = (SLIDE_COUNT * 2 + 2.5) * h;
 
             // Entering the first run: move to the same pixels one run lower.
             if (y < upperRecenterPoint) {
