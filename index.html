@@ -7,8 +7,8 @@
     <link rel="icon" type="image/jpeg" href="FAVICON.jpg">
     <link rel="apple-touch-icon" href="FAVICON.jpg">
     <!-- Preload first-screen media + warm the mosaic so enter feels instant -->
-    <link rel="preload" href="CLIPS/05_Icefileds_1.mp4?v=20260728" as="video" type="video/mp4">
-    <link rel="preload" href="IMAGES/new/icefields-poster.jpg" as="image" fetchpriority="high">
+    <link rel="preload" href="CLIPS/05_Icefileds_1.mp4?v=20260804" as="video" type="video/mp4">
+    <link rel="preload" href="IMAGES/new/icefields-poster.jpg?v=20260804" as="image" fetchpriority="high">
     <link rel="prefetch" href="mosaic.html">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,10 +53,15 @@
         .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
         .lenis.lenis-stopped { overflow: hidden; }
 
-        /* Touch devices use the browser's compositor-driven scrolling. */
-        html.native-snap { scroll-snap-type: y mandatory; }
+        /* Touch devices keep scrolling on Safari's compositor, matching the
+           native-touch path used by the Dirty Aesthetic site. */
+        html.native-snap {
+            scroll-behavior: auto;
+            scroll-snap-type: y mandatory;
+        }
         html.native-snap .slide {
             scroll-snap-align: start;
+            scroll-snap-stop: always;
         }
 
         a { color: inherit; text-decoration: none; }
@@ -320,55 +325,6 @@
             .enter-veil, .enter-veil.is-fading { transition: none !important; }
         }
 
-        /*
-         * Mobile is a real viewport carousel, not a document-scroll hack.
-         * The class persists when a phone rotates wider than the CSS breakpoint.
-         */
-        html.mobile-carousel,
-        html.mobile-carousel body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            overscroll-behavior: none;
-        }
-
-        html.mobile-carousel body {
-            position: fixed;
-            inset: 0;
-        }
-
-        html.mobile-carousel .slides {
-            width: 100%;
-            touch-action: none;
-            will-change: transform;
-            transform: translate3d(0, 0, 0);
-        }
-
-        html.mobile-carousel .slides.is-animating {
-            transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
-        }
-
-        html.mobile-carousel .slide {
-            height: 100vh;
-            height: 100dvh;
-            scroll-snap-align: none;
-        }
-
-        html.mobile-carousel .top-bar,
-        html.mobile-carousel .hint {
-            mix-blend-mode: normal;
-        }
-
-        html.mobile-carousel .hint {
-            animation: none;
-        }
-
-        html.mobile-carousel .slide-media {
-            will-change: auto;
-            backface-visibility: visible;
-            transform: none;
-        }
-
         @media (max-width: 768px) {
             :root { --hint-clearance: 5.25rem; }
 
@@ -386,6 +342,8 @@
             }
 
             .slide-media {
+                inset: 0;
+                height: 100%;
                 will-change: auto;
                 backface-visibility: visible;
                 transform: none;
@@ -491,43 +449,42 @@
         // Landing slides — edit this list to change the infinite loop.
         // type: 'image' | 'video'.  sub is optional (leave '' to hide).
         const LANDING_SLIDES = [
-            { type: 'video', src: 'CLIPS/05_Icefileds_1.mp4?v=20260728', poster: 'IMAGES/new/icefields-poster.jpg', title: 'Icefields Parkway', sub: 'Banff National Park' },
+            { type: 'video', src: 'CLIPS/05_Icefileds_1.mp4?v=20260804', poster: 'IMAGES/new/icefields-poster.jpg?v=20260804', title: 'Icefields Parkway', sub: 'Banff National Park' },
             { type: 'image', src: 'IMAGES/01.jpg',                        title: 'Takakkaw Falls', sub: 'Yoho National Park' },
             { type: 'image', src: 'IMAGES/new/cass-and-aiden.jpg',       title: 'Back to Me',      sub: 'Dirty Aesthetic · Cover Art' },
             { type: 'image', src: 'IMAGES/03.jpg',                        title: 'King\u2019s Peak', sub: 'Strathcona Provincial Park' },
-            { type: 'video', src: 'CLIPS/03_Fire_lookout_1.mp4?v=20260728', poster: 'IMAGES/video-posters/03_Fire_lookout_1.jpg', title: 'Hidden Lake Lookout', sub: 'North Cascades' },
+            { type: 'video', src: 'CLIPS/03_Fire_lookout_1.mp4?v=20260804', poster: 'IMAGES/video-posters/03_Fire_lookout_1.jpg?v=20260804', title: 'Hidden Lake Lookout', sub: 'North Cascades' },
             { type: 'image', src: 'IMAGES/new/man-under-snowy-mountain.jpg', title: 'Whistler',    sub: 'Avalanche Safety Training' },
-            { type: 'video', src: 'CLIPS/02_SAS_1.mp4?v=20260728', poster: 'IMAGES/video-posters/02_SAS_1.jpg', title: 'Saskatchewan', sub: 'Windmill', focus: 'left' },
+            { type: 'video', src: 'CLIPS/02_SAS_1.mp4?v=20260804', poster: 'IMAGES/video-posters/02_SAS_1.jpg?v=20260804', title: 'Saskatchewan', sub: 'Windmill', focus: 'left' },
             { type: 'image', src: 'IMAGES/06.jpg',                        title: 'Kokanee Glacier', sub: 'Provincial Park' },
         ];
 
         const MOSAIC_URL = 'mosaic.html';
         const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
         const isTouch =
-            hasCoarsePointer ||
+            window.matchMedia('(pointer: coarse)').matches ||
             (navigator.maxTouchPoints || 0) > 0;
         const isMobileLayout = window.matchMedia('(max-width: 768px)').matches;
-        const useMobileCarousel = isMobileLayout || hasCoarsePointer;
-        const useNativeScroll = reduceMotion || useMobileCarousel;
-        // Desktop keeps its existing document-scroll loop. Mobile uses a
-        // dedicated transform carousel with one clone at either end.
+        // Dirty Aesthetic's smooth touch behavior comes from leaving iOS on
+        // native scrolling (Lenis syncTouch is disabled there). Do the same:
+        // Safari gets a finite snap list, while desktop keeps the smooth loop.
+        const useNativeScroll = reduceMotion || isTouch || isMobileLayout;
         const useInfiniteLoop = !useNativeScroll;
 
         // Always start from the first real slide on (re)load.
         if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-        document.documentElement.classList.toggle('mobile-carousel', useMobileCarousel);
 
         // ---------- Build slides ----------
         // Desktop keeps three complete runs for its document-scroll loop.
-        // Mobile gets [last clone] [real slides] [first clone].
+        // Touch/mobile builds one finite run so Safari never has to remap or
+        // transform the page during momentum.
         const slidesEl = document.getElementById('slides');
         const frag = document.createDocumentFragment();
         // Don't name this `N` — Lenis's minified bundle declares a global `N`.
         const SLIDE_COUNT = LANDING_SLIDES.length;
         const LOOP_COPIES = useInfiniteLoop ? 3 : 1;
         const MIDDLE_COPY = useInfiniteLoop ? 1 : 0;
-        const IDX_FIRST_REAL = useMobileCarousel ? 1 : SLIDE_COUNT * MIDDLE_COPY;
+        const IDX_FIRST_REAL = SLIDE_COUNT * MIDDLE_COPY;
 
         function createSlide(item, displayIndex, opts = {}) {
             const slide = document.createElement('section');
@@ -614,36 +571,16 @@
             return slide;
         }
 
-        if (useMobileCarousel) {
-            frag.appendChild(createSlide(
-                LANDING_SLIDES[SLIDE_COUNT - 1],
-                SLIDE_COUNT - 1,
-                { copy: -1 }
-            ));
+        for (let copy = 0; copy < LOOP_COPIES; copy++) {
             LANDING_SLIDES.forEach((item, i) => {
+                const isOpeningSlide = copy === MIDDLE_COPY && i === 0;
+                const isOpeningNeighbor = copy === MIDDLE_COPY && i === 1;
                 frag.appendChild(createSlide(item, i, {
-                    copy: 0,
-                    priority: i === 0,
-                    nearby: i === 1,
+                    copy,
+                    priority: isOpeningSlide,
+                    nearby: isOpeningNeighbor,
                 }));
             });
-            frag.appendChild(createSlide(
-                LANDING_SLIDES[0],
-                0,
-                { copy: 1, nearby: true }
-            ));
-        } else {
-            for (let copy = 0; copy < LOOP_COPIES; copy++) {
-                LANDING_SLIDES.forEach((item, i) => {
-                    const isOpeningSlide = copy === MIDDLE_COPY && i === 0;
-                    const isOpeningNeighbor = copy === MIDDLE_COPY && i === 1;
-                    frag.appendChild(createSlide(item, i, {
-                        copy,
-                        priority: isOpeningSlide,
-                        nearby: isOpeningNeighbor,
-                    }));
-                });
-            }
         }
 
         slidesEl.appendChild(frag);
@@ -696,53 +633,23 @@
             el.addEventListener('click', (e) => { e.preventDefault(); enterSite(); });
         });
 
-        let downX = 0, downY = 0, downAt = 0, moved = false;
-        let activePointerId = null;
-        let pointerAxis = null;
+        let downX = 0, downY = 0, moved = false;
         slidesEl.addEventListener('pointerdown', (e) => {
-            if (!e.isPrimary || (useMobileCarousel && mobileCarouselBusy)) return;
-            downX = e.clientX;
-            downY = e.clientY;
-            downAt = e.timeStamp;
-            moved = false;
-            pointerAxis = null;
-            activePointerId = e.pointerId;
-            if (useMobileCarousel) {
-                mobileDragOffset = 0;
-                slidesEl.classList.remove('is-animating');
-                try { slidesEl.setPointerCapture(e.pointerId); } catch (_) {}
-            }
+            downX = e.clientX; downY = e.clientY; moved = false;
         });
         slidesEl.addEventListener('pointermove', (e) => {
-            if (activePointerId !== e.pointerId) return;
-            const dx = e.clientX - downX;
-            const dy = e.clientY - downY;
-            if (!pointerAxis && Math.max(Math.abs(dx), Math.abs(dy)) > 6) {
-                pointerAxis = Math.abs(dy) >= Math.abs(dx) ? 'vertical' : 'horizontal';
-            }
-            if (Math.abs(dx) > 10 || Math.abs(dy) > 10) moved = true;
-            if (!useMobileCarousel || pointerAxis !== 'vertical') return;
-            e.preventDefault();
-            const limit = mobileSlideHeight() * 0.42;
-            mobileDragOffset = Math.max(-limit, Math.min(limit, dy));
-            positionMobileCarousel(false, mobileDragOffset);
+            if (Math.abs(e.clientX - downX) > 10 || Math.abs(e.clientY - downY) > 10) moved = true;
         });
-        slidesEl.addEventListener('pointerup', finishMobilePointer);
-        slidesEl.addEventListener('pointercancel', finishMobilePointer);
         slidesEl.addEventListener('click', () => { if (!moved) enterSite(); });
 
         // ---------- Desktop smooth scroll / native mobile scroll ----------
-        document.documentElement.classList.toggle('native-snap', useNativeScroll && !useMobileCarousel);
+        document.documentElement.classList.toggle('native-snap', useNativeScroll);
         let lastScroll = 0;
         let wrapping = false;
         let isSnapping = false;
         let touchActive = false;
         let lastVelocity = 0;
         let nativeRecenterTimer = 0;
-        let mobileCarouselIndex = IDX_FIRST_REAL;
-        let mobileCarouselBusy = false;
-        let mobileDragOffset = 0;
-        let mobileTransitionFallback = 0;
         // Don't remap until the first real slide is seated — otherwise a 0-height
         // layout pass can clamp wraps forever and freeze the main thread.
         let loopReady = false;
@@ -757,113 +664,6 @@
             return i * slideHeight();
         }
 
-        function mobileSlideHeight() {
-            const firstRealSlide = slideEls[IDX_FIRST_REAL];
-            const measured = firstRealSlide && firstRealSlide.getBoundingClientRect().height;
-            return measured || window.visualViewport?.height || window.innerHeight || 1;
-        }
-
-        function positionMobileCarousel(animate, dragOffset = 0) {
-            if (!useMobileCarousel) return;
-            if (animate && !reduceMotion) {
-                // Commit the dragged position before enabling the settling motion.
-                void slidesEl.offsetHeight;
-                slidesEl.classList.add('is-animating');
-            } else {
-                slidesEl.classList.remove('is-animating');
-            }
-            const y = -(mobileCarouselIndex * mobileSlideHeight()) + dragOffset;
-            slidesEl.style.transform = 'translate3d(0,' + y.toFixed(2) + 'px,0)';
-        }
-
-        function updateMobileSlideState() {
-            if (!useMobileCarousel) return;
-            const firstCloneIndex = 0;
-            const lastCloneIndex = SLIDE_COUNT + 1;
-            const activeRealIndex =
-                mobileCarouselIndex === firstCloneIndex ? SLIDE_COUNT - 1 :
-                mobileCarouselIndex === lastCloneIndex ? 0 :
-                mobileCarouselIndex - 1;
-
-            slideEls.forEach((slide, physicalIndex) => {
-                const isClone = physicalIndex === firstCloneIndex || physicalIndex === lastCloneIndex;
-                const isActive = !isClone && physicalIndex - 1 === activeRealIndex;
-                slide.setAttribute('aria-hidden', isActive ? 'false' : 'true');
-                slide.classList.toggle('is-active', isActive);
-            });
-        }
-
-        function completeMobileCarouselMove() {
-            if (!useMobileCarousel) return;
-            clearTimeout(mobileTransitionFallback);
-            slidesEl.classList.remove('is-animating');
-
-            const h = mobileSlideHeight();
-            let matchingIndex = mobileCarouselIndex;
-            if (mobileCarouselIndex === 0) matchingIndex = SLIDE_COUNT;
-            if (mobileCarouselIndex === SLIDE_COUNT + 1) matchingIndex = 1;
-            if (matchingIndex !== mobileCarouselIndex) {
-                syncMatchingLoopVideo(
-                    mobileCarouselIndex * h,
-                    matchingIndex * h,
-                    h
-                );
-                mobileCarouselIndex = matchingIndex;
-                positionMobileCarousel(false);
-            }
-
-            mobileDragOffset = 0;
-            mobileCarouselBusy = false;
-            updateMobileSlideState();
-            syncLandingVideos();
-        }
-
-        function moveMobileCarousel(direction) {
-            if (!useMobileCarousel || mobileCarouselBusy) return;
-            mobileCarouselBusy = true;
-            mobileDragOffset = 0;
-            mobileCarouselIndex += direction;
-            positionMobileCarousel(true);
-
-            if (reduceMotion) {
-                requestAnimationFrame(completeMobileCarouselMove);
-                return;
-            }
-            clearTimeout(mobileTransitionFallback);
-            mobileTransitionFallback = setTimeout(completeMobileCarouselMove, 560);
-        }
-
-        function finishMobilePointer(e) {
-            if (activePointerId !== e.pointerId) return;
-            const wasVerticalDrag = useMobileCarousel && pointerAxis === 'vertical';
-            const dy = mobileDragOffset || (e.clientY - downY);
-            const elapsed = Math.max(1, e.timeStamp - downAt);
-            const fastSwipe = Math.abs(dy) > 24 && Math.abs(dy / elapsed) > 0.45;
-            const threshold = Math.min(72, mobileSlideHeight() * 0.12);
-
-            try { slidesEl.releasePointerCapture(e.pointerId); } catch (_) {}
-            activePointerId = null;
-            pointerAxis = null;
-
-            if (!wasVerticalDrag) return;
-            if (Math.abs(dy) >= threshold || fastSwipe) {
-                moveMobileCarousel(dy < 0 ? 1 : -1);
-            } else {
-                moveMobileCarousel(0);
-            }
-        }
-
-        slidesEl.addEventListener('transitionend', (e) => {
-            if (
-                useMobileCarousel &&
-                e.target === slidesEl &&
-                e.propertyName === 'transform' &&
-                mobileCarouselBusy
-            ) {
-                completeMobileCarouselMove();
-            }
-        });
-
         function ensureLenis() {
             if (useNativeScroll || !window.Lenis) return;
             if (lenis) return;
@@ -871,9 +671,11 @@
                 lenis = new Lenis({
                     infinite: false,
                     wheelMultiplier: 0.85,
-                    lerp: 0.14,
+                    duration: 1.05,
+                    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
                     gestureOrientation: 'vertical',
                     smoothWheel: true,
+                    syncTouch: false,
                 });
             } catch (_) {
                 lenis = null;
@@ -881,15 +683,6 @@
         }
 
         function seatAtFirstReal() {
-            if (useMobileCarousel) {
-                mobileCarouselIndex = IDX_FIRST_REAL;
-                mobileCarouselBusy = false;
-                mobileDragOffset = 0;
-                window.scrollTo(0, 0);
-                positionMobileCarousel(false);
-                updateMobileSlideState();
-                return;
-            }
             const y = scrollForIndex(IDX_FIRST_REAL);
             if (lenis) {
                 try {
@@ -912,9 +705,9 @@
             });
         });
 
-        document.documentElement.style.touchAction = useMobileCarousel ? 'none' : 'pan-y';
-        document.body.style.touchAction = useMobileCarousel ? 'none' : 'pan-y';
-        slidesEl.style.touchAction = useMobileCarousel ? 'none' : 'pan-y';
+        document.documentElement.style.touchAction = 'pan-y';
+        document.body.style.touchAction = 'pan-y';
+        slidesEl.style.touchAction = 'pan-y';
 
         window.addEventListener('touchstart', () => {
             touchActive = true;
@@ -932,23 +725,6 @@
             touchActive = false;
             scheduleNativeRecenter();
         }, { passive: true });
-
-        slidesEl.addEventListener('wheel', (e) => {
-            if (!useMobileCarousel || Math.abs(e.deltaY) < 18) return;
-            e.preventDefault();
-            moveMobileCarousel(e.deltaY > 0 ? 1 : -1);
-        }, { passive: false });
-
-        window.addEventListener('keydown', (e) => {
-            if (!useMobileCarousel) return;
-            if (e.key === 'ArrowDown' || e.key === 'PageDown') {
-                e.preventDefault();
-                moveMobileCarousel(1);
-            } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
-                e.preventDefault();
-                moveMobileCarousel(-1);
-            }
-        });
 
         // Recenter between identical runs while there is still a full viewport of
         // runway in either direction. The visible pixels do not change.
@@ -1032,15 +808,6 @@
         // Preserve the current slide through phone/tablet orientation changes.
         window.addEventListener('orientationchange', () => {
             setTimeout(() => {
-                if (useMobileCarousel) {
-                    mobileCarouselBusy = false;
-                    mobileDragOffset = 0;
-                    clearTimeout(mobileTransitionFallback);
-                    positionMobileCarousel(false);
-                    updateMobileSlideState();
-                    syncLandingVideos();
-                    return;
-                }
                 let nearestIndex = IDX_FIRST_REAL;
                 let nearestDistance = Infinity;
                 slideEls.forEach((slide, index) => {
@@ -1057,17 +824,6 @@
                 resetParallax();
             }, 220);
         }, { passive: true });
-
-        if (useMobileCarousel && window.visualViewport) {
-            let mobileViewportFrame = 0;
-            window.visualViewport.addEventListener('resize', () => {
-                if (mobileViewportFrame) cancelAnimationFrame(mobileViewportFrame);
-                mobileViewportFrame = requestAnimationFrame(() => {
-                    mobileViewportFrame = 0;
-                    positionMobileCarousel(false, mobileDragOffset);
-                });
-            }, { passive: true });
-        }
 
         // ---------- Parallax ----------
         function resetParallax() {
@@ -1353,11 +1109,6 @@
             isSnapping = false;
             touchActive = false;
             revealLanding(true);
-            if (useMobileCarousel) {
-                seatAtFirstReal();
-                syncLandingVideos();
-                return;
-            }
             if (!lenis) ensureLenis();
             if (lenis) {
                 try { lenis.start(); } catch (_) {}
