@@ -9,7 +9,8 @@ window.GALLERY_MANIFEST = (() => {
     const image = (src, width, height, alt) => ({ type: 'image', src, width, height, alt });
     const video = (src) => ({
         type: 'video',
-        src: `${src}?v=20260728`,
+        // Bump when CLIPS/ is re-encoded — every clip was replaced on 2026-08-06.
+        src: `${src}?v=20260806`,
         poster: src
             .replace(/^CLIPS\//, 'IMAGES/video-posters/')
             .replace(/\.mp4$/i, '.jpg'),

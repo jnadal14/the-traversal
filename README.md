@@ -36,12 +36,33 @@ the-traversal/
 ├── README.md           # This file
 ├── LICENSE             # MIT License
 ├── CLIPS/              # Gallery videos (order-prefixed) + WORK subfolder
-│   ├── 01_AWAGA_1.mp4 … 09_SAS_2.mp4
+│   ├── 01_AWAGA_1.mp4 … 09_SAS_2.mp4   # 1920x1080 web encodes
+│   ├── mobile/         # 1080x1920 portrait crops of the landing clips
 │   └── WORK/           # Work panel videos
+├── CLIPS_BACKUP/       # 4K masters (git-ignored) — the encode script's input
 └── IMAGES/             # Photography (numbered gallery files + new/ + WORK/)
     ├── new/            # Drop new photos here, then list paths in gallery-manifest.js
+    ├── video-posters/  # <clip>.jpg (landscape) and <clip>-m.jpg (portrait)
     └── WORK/           # Work panel images
 ```
+
+### Re-encoding video
+
+`CLIPS/` holds web encodes, never masters. Regenerate them from the 4K files in
+`CLIPS_BACKUP/` with:
+
+```bash
+./scripts/encode-web-video.sh
+```
+
+That writes the 1080p landscape encodes, the portrait crops used on phones, and
+a poster for each pulled from frame 0 of the encode itself. The script explains
+the bitrate choices inline. After re-encoding, bump the `ASSET_V` constant in
+`index.html` and the `?v=` in `gallery-manifest.js` so browsers refetch.
+
+Landing clips are declared by name — `{ type: 'video', clip: '05_Icefileds_1' }` —
+and the page resolves the landscape or portrait variant at runtime, so a new clip
+only needs its two encodes plus the two posters.
 
 ### Adding photos to the gallery
 
