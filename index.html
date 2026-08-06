@@ -787,7 +787,6 @@
         let wrapping = false;
         let isSnapping = false;
         let touchActive = false;
-        let lastVelocity = 0;
         let nativeRecenterTimer = 0;
         // Don't remap until the first real slide is seated — otherwise a 0-height
         // layout pass can clamp wraps forever and freeze the main thread.
@@ -814,7 +813,11 @@
                     duration: 1.05,
                     easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
                     gestureOrientation: 'vertical',
-                    smoothWheel: true,
+                    // The section stepper below owns the wheel; Lenis interpolating
+                    // the same gesture would fight it. Lenis is still what moves the
+                    // page — scrollTo() drives every transition — so its scroll value
+                    // stays authoritative for the loop and parallax.
+                    smoothWheel: false,
                     syncTouch: false,
                 });
             } catch (_) {
@@ -1069,28 +1072,61 @@
         // Scrolling eight viewports to reach a photograph you can already see on
         // the rail is the slow path; these give the keyboard and the rail a way
         // to jump straight there.
+        // Symmetric ease: the slide leaves and arrives at rest, which reads as one
+        // deliberate move rather than a throw that decays.
+        const easeInOutCubic = (t) => t < 0.5
+            ? 4 * t * t * t
+            : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        // How long one section transition runs. The wheel arbitration below reads
+        // animatingUntil to know when a gesture is still in flight.
+        const SECTION_DURATION = 620;
+        let animatingUntil = 0;
+        let targetSlideIndex = -1;
+        let transitionToken = 0;
+
         function goToSlide(physicalIndex, opts = {}) {
             const target = realSnapIndex(physicalIndex);
+            // Never arm the deadline for a move that is not happening — at a clamp
+            // that would block the wheel for no reason.
+            if (target === targetSlideIndex && performance.now() < animatingUntil) return;
             const y = target * SLIDE_H;
+            const durationMs = (opts.duration ?? SECTION_DURATION / 1000) * 1000;
+            targetSlideIndex = target;
+            animatingUntil = performance.now() + durationMs;
             isSnapping = true;
+            const token = ++transitionToken;
+
+            const settle = () => {
+                // A chained gesture retargets mid-flight. If the superseded
+                // animation still reports completion, it must not clear the state
+                // that now belongs to the newer one.
+                if (token !== transitionToken) return;
+                isSnapping = false;
+                animatingUntil = 0;
+                normalizeLoop();
+                syncLandingVideos();
+                // normalizeLoop() may have remapped the scroll a whole run; the next
+                // gesture re-derives its index from scroll, so drop the stale one.
+                targetSlideIndex = -1;
+            };
+
             if (lenis) {
                 lenis.scrollTo(y, {
-                    duration: opts.duration ?? 0.7,
-                    easing: (t) => 1 - Math.pow(1 - t, 4),
-                    lock: true,
-                    onComplete: () => {
-                        isSnapping = false;
-                        normalizeLoop();
-                        syncLandingVideos();
-                    },
+                    duration: durationMs / 1000,
+                    easing: easeInOutCubic,
+                    // force, and no lock. Lenis bails out of scrollTo() early when
+                    // isLocked is set, so locking would silently swallow the
+                    // retarget that chains a second gesture onto a transition
+                    // already in flight. Nothing else can move the page anyway —
+                    // smoothWheel is off and handleWheel preventDefaults.
+                    lock: false,
+                    force: true,
+                    onComplete: settle,
                 });
             } else {
                 window.scrollTo({ top: y, behavior: reduceMotion ? 'auto' : 'smooth' });
-                setTimeout(() => {
-                    isSnapping = false;
-                    normalizeLoop();
-                    syncLandingVideos();
-                }, 520);
+                setTimeout(settle, durationMs);
             }
             lastScroll = y;
         }
@@ -1126,7 +1162,13 @@
 
             e.preventDefault();
             clearTimeout(nativeRecenterTimer);
-            goToSlide(Math.round(currentScroll() / SLIDE_H) + step, { duration: 0.55 });
+            // Step from the slide already being travelled to, not from the
+            // mid-flight scroll position, so holding an arrow key advances one
+            // slide per press instead of stalling against the running transition.
+            const from = (targetSlideIndex >= 0 && performance.now() < animatingUntil)
+                ? targetSlideIndex
+                : Math.round(currentScroll() / SLIDE_H);
+            goToSlide(from + step);
         });
 
         // ---------- Progress rail ----------
@@ -1148,86 +1190,130 @@
             updateActiveSlide(true);
         })();
 
-        // ---------- Magnetic snap ----------
+        // ---------- Section-per-gesture wheel navigation ----------
+        //
+        // One scroll gesture moves exactly one slide. This replaces the previous
+        // behaviour, where Lenis scrolled freely and a debounced magnetic snap
+        // pulled to whatever slide the fling happened to end near — so a single
+        // trackpad throw could cross three or four photographs.
+        //
+        // CSS scroll-snap cannot do this either. Under `mandatory` snap a single
+        // wheel notch moves ~100px of a full-viewport slide, never crosses the
+        // halfway point, and the browser snaps straight back, so the page appears
+        // not to move at all. Snap handles a trackpad throw well and a mouse wheel
+        // badly, which is why the transition is animated here instead.
+        //
+        // The hard part is telling a deliberate second gesture apart from the
+        // momentum tail of the first: a fling keeps firing wheel events for over a
+        // second, well past the 620ms transition, and that tail used to be waiting
+        // to steal another step the instant the animation ended. The rule is a
+        // plain deadline — input is dropped while a transition runs, and accepted
+        // immediately afterwards. Nothing can extend the deadline, so unlike a
+        // scheme that waits for momentum to decay before re-arming, it cannot
+        // deadlock against a mouse wheel that arrives at a constant rate.
         if (lenis) {
-            const easeOutQuart = (t) => 1 - Math.pow(1 - t, 4);
-            let snapTimer = null;
-            // Snap as soon as coasting slows — don't wait out a long inertia drift.
-            const SNAP_DELAY = 90;
-            const SNAP_RETRY = 70;
-            const SNAP_DURATION = 0.48;
-            const VEL_IDLE = 2.8;
-            const SNAP_DEADZONE = 3;
+            const WHEEL_THRESHOLD = 40;     // accumulated delta before advancing
+            const WHEEL_TAIL_FLOOR = 5;     // below this is momentum decay, not intent
+            const GESTURE_GAP = 90;         // ms of quiet that marks a new gesture
+            const CONTINUOUS_ADVANCE = 950; // ms; unbroken input still steps this often
+            const SUSTAIN_RATIO = 0.5;      // vs the gesture's peak: sustained, not decaying
 
-            function snapToNearest() {
-                if (navigating || isSnapping || wrapping || touchActive) return;
-                if (Math.abs(lastVelocity) > VEL_IDLE) {
-                    scheduleSnap(SNAP_RETRY);
+            let wheelAccum = 0;
+            let lastWheelTime = 0;
+            let lastAdvanceAt = 0;
+            let sawGapSinceAdvance = true;
+            let gesturePeak = 0;
+
+            function currentSlideIndex() {
+                return realSnapIndex(Math.round(currentScroll() / SLIDE_H));
+            }
+
+            function handleWheel(event) {
+                if (navigating || reduceMotion || event.ctrlKey || !event.deltaY) return;
+                event.preventDefault();
+
+                // deltaMode 1 is lines, 2 is pages — normalise both to pixels.
+                const multiplier = event.deltaMode === 1 ? 16
+                    : event.deltaMode === 2 ? SLIDE_H
+                    : 1;
+                const delta = event.deltaY * multiplier;
+                // The event's own timestamp, not whenever the handler happened to run.
+                const now = event.timeStamp || performance.now();
+                const magnitude = Math.abs(delta);
+                const gap = now - lastWheelTime;
+
+                // Mid-transition. Momentum arrives as an unbroken stream and is
+                // dropped, so a fling cannot buy itself extra slides. A distinct new
+                // gesture — a pause in front of it and real weight behind it —
+                // retargets one further along, so deliberate notches during the
+                // animation chain smoothly instead of being thrown away.
+                if (now < animatingUntil) {
+                    lastWheelTime = now;
+                    wheelAccum = 0;
+                    if (gap > GESTURE_GAP && magnitude >= WHEEL_THRESHOLD) {
+                        gesturePeak = magnitude;
+                        sawGapSinceAdvance = false;
+                        lastAdvanceAt = now;
+                        const from = targetSlideIndex >= 0 ? targetSlideIndex : currentSlideIndex();
+                        goToSlide(from + Math.sign(delta));
+                    }
                     return;
                 }
-                if (!lenis) return;
 
-                normalizeLoop();
+                lastWheelTime = now;
+                // Only a real pause starts a new gesture, and only then does the peak
+                // reset. Holding the peak across the whole unbroken stream is what
+                // lets a decaying tail be told apart from sustained input below.
+                if (gap > GESTURE_GAP) {
+                    sawGapSinceAdvance = true;
+                    wheelAccum = 0;
+                    gesturePeak = 0;
+                }
 
-                // Stacked equal-height slides: the nearest one is just the rounded
-                // scroll offset, no need to measure all 24.
-                const y = currentScroll();
-                const targetIndex = realSnapIndex(Math.round(y / SLIDE_H));
-                const targetY = targetIndex * SLIDE_H;
-                if (Math.abs(targetY - y) < SNAP_DEADZONE) return;
+                // The tail of a trackpad fling decays toward zero. Real intent — a
+                // wheel notch or a fresh push — arrives well above this.
+                if (magnitude < WHEEL_TAIL_FLOOR) return;
 
-                isSnapping = true;
-                lenis.scrollTo(targetY, {
-                    duration: SNAP_DURATION,
-                    easing: easeOutQuart,
-                    lock: false,
-                    onComplete: () => {
-                        isSnapping = false;
-                        normalizeLoop();
-                    },
-                });
+                gesturePeak = Math.max(gesturePeak, magnitude);
+                wheelAccum += delta;
+                if (Math.abs(wheelAccum) < WHEEL_THRESHOLD) return;
+
+                // An unbroken stream counts as one gesture however long it runs, so
+                // it is held off until either a genuine pause or CONTINUOUS_ADVANCE.
+                // Past that window sustained input still steps — a spun wheel keeps
+                // arriving near its own peak — while a decaying tail, by then a small
+                // fraction of the peak it started from, does not. Judging magnitude
+                // against the gesture's own peak separates the two without ever
+                // locking the wheel out.
+                if (!sawGapSinceAdvance) {
+                    if (now - lastAdvanceAt < CONTINUOUS_ADVANCE) {
+                        wheelAccum = 0;
+                        return;
+                    }
+                    if (magnitude < gesturePeak * SUSTAIN_RATIO) {
+                        wheelAccum = 0;
+                        return;
+                    }
+                }
+
+                const direction = Math.sign(wheelAccum);
+                wheelAccum = 0;
+                sawGapSinceAdvance = false;
+                lastAdvanceAt = now;
+                goToSlide(currentSlideIndex() + direction);
             }
 
-            function scheduleSnap(delay = SNAP_DELAY) {
-                clearTimeout(snapTimer);
-                snapTimer = setTimeout(snapToNearest, delay);
-            }
+            window.addEventListener('wheel', handleWheel, { passive: false });
 
-            lenis.on('scroll', ({ scroll, velocity }) => {
-                lastVelocity = velocity || 0;
+            // Keep the loop and video playback in step with Lenis, but nothing here
+            // schedules a snap any more — scroll only moves via goToSlide(), which
+            // always lands exactly on a slide.
+            lenis.on('scroll', ({ scroll }) => {
                 lastScroll = scroll;
                 syncLandingVideos();
                 if (wrapping) return;
                 normalizeLoop();
-
-                if (isSnapping || wrapping || touchActive) {
-                    clearTimeout(snapTimer);
-                    return;
-                }
-                if (Math.abs(lastVelocity) > VEL_IDLE) {
-                    scheduleSnap(SNAP_RETRY);
-                    return;
-                }
-                scheduleSnap();
             });
-
-            // Lenis cancels an interrupted scrollTo animation without always
-            // firing onComplete. Release our snap guard here so a hard reversal
-            // can still trigger the loop recenter.
-            const releaseSnapGuard = () => {
-                isSnapping = false;
-                clearTimeout(snapTimer);
-            };
-            window.addEventListener('wheel', releaseSnapGuard, { passive: true });
-            // Navigation keys drive goToSlide(), which owns isSnapping for the
-            // duration of its animation — releasing it here would let the magnetic
-            // snap retarget mid-jump and fight it.
-            const NAV_KEYS = new Set([
-                'ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', ' ', 'Enter',
-            ]);
-            window.addEventListener('keydown', (e) => {
-                if (!NAV_KEYS.has(e.key)) releaseSnapGuard();
-            }, { passive: true });
         }
 
         // ---------- Video lifecycle ----------
