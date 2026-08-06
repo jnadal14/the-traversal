@@ -6,9 +6,14 @@
     <title>Jacob Nadal — The Traversal</title>
     <link rel="icon" type="image/jpeg" href="FAVICON.jpg">
     <link rel="apple-touch-icon" href="FAVICON.jpg">
-    <!-- Preload first-screen media + warm the mosaic so enter feels instant -->
-    <link rel="preload" href="CLIPS/05_Icefileds_1.mp4?v=20260804" as="video" type="video/mp4">
-    <link rel="preload" href="IMAGES/new/icefields-poster.jpg?v=20260804" as="image" fetchpriority="high">
+    <!-- Preload first-screen media + warm the mosaic so enter feels instant.
+         Desktop pulls the 1080p landscape encode, phones the portrait crop, so
+         neither downloads pixels the other will never show. Each poster is
+         frame 0 of its own encode, which makes the poster->video swap invisible. -->
+    <link rel="preload" href="IMAGES/video-posters/05_Icefileds_1.jpg?v=20260806" as="image" fetchpriority="high" media="(min-width: 769px)">
+    <link rel="preload" href="IMAGES/video-posters/05_Icefileds_1-m.jpg?v=20260806" as="image" fetchpriority="high" media="(max-width: 768px)">
+    <link rel="preload" href="CLIPS/05_Icefileds_1.mp4?v=20260806" as="video" type="video/mp4" media="(min-width: 769px)">
+    <link rel="preload" href="CLIPS/mobile/05_Icefileds_1.mp4?v=20260806" as="video" type="video/mp4" media="(max-width: 768px)">
     <link rel="prefetch" href="mosaic.html">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -154,6 +159,25 @@
             max-width: min(42rem, 100%);
             text-shadow: 0 1px 20px rgba(0, 0, 0, 0.5);
             pointer-events: none;
+            /* Settles in as its slide takes the viewport. Toggled by a single
+               class on slide change, never per frame. */
+            opacity: 0;
+            transform: translateY(0.9rem);
+            transition:
+                opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1),
+                transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .slide.is-active .slide-caption {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* The portrait encodes are already cropped to the framing these rules
+           were approximating, so re-offsetting would push past the subject. */
+        .slide-media.media-precropped img,
+        .slide-media.media-precropped video {
+            object-position: center center !important;
         }
 
         .slide-index {
@@ -235,6 +259,51 @@
         .enter-link .arrow { transition: transform 0.3s ease; }
         .enter-link:hover .arrow { transform: translateX(4px); }
 
+        /* ---------- Progress rail ---------- */
+        .slide-rail {
+            position: fixed;
+            right: clamp(0.9rem, 2vw, 1.75rem);
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.7rem;
+            mix-blend-mode: difference;
+        }
+
+        .rail-tick {
+            appearance: none;
+            -webkit-appearance: none;
+            position: relative;
+            border: 0;
+            padding: 0;
+            background: rgba(255, 255, 255, 0.45);
+            width: 0.75rem;
+            height: 2px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+                        background-color 0.45s ease;
+        }
+
+        /* Widen the hit area well past the 2px visual without moving anything. */
+        .rail-tick::before {
+            content: '';
+            position: absolute;
+            width: 2.75rem;
+            height: 1.1rem;
+            transform: translate(-1.9rem, -0.55rem);
+        }
+
+        .rail-tick:hover { background: rgba(255, 255, 255, 0.8); }
+
+        .rail-tick.is-active {
+            width: 1.6rem;
+            background: #fff;
+        }
+
         /* Scroll / enter hint — always sits below captions */
         .hint {
             position: fixed;
@@ -310,12 +379,14 @@
         }
 
         body.is-arriving .top-bar,
-        body.is-arriving .hint {
+        body.is-arriving .hint,
+        body.is-arriving .slide-rail {
             opacity: 0;
         }
 
         body:not(.is-arriving) .top-bar,
-        body:not(.is-arriving) .hint {
+        body:not(.is-arriving) .hint,
+        body:not(.is-arriving) .slide-rail {
             transition: opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
         }
 
@@ -323,6 +394,13 @@
             .hint, .enter-veil-text { animation: none; }
             .slide-media { inset: 0; height: 100%; will-change: auto; }
             .enter-veil, .enter-veil.is-fading { transition: none !important; }
+            /* Show every caption outright rather than sliding one in per slide. */
+            .slide-caption {
+                opacity: 1;
+                transform: none;
+                transition: none;
+            }
+            .rail-tick { transition: none; }
         }
 
         @media (max-width: 768px) {
@@ -333,7 +411,8 @@
             /* Avoid expensive fixed-element blending/composited transforms over
                video; both are common sources of Safari scroll flashing. */
             .top-bar,
-            .hint {
+            .hint,
+            .slide-rail {
                 mix-blend-mode: normal;
             }
 
@@ -394,10 +473,16 @@
 
             .hint-full { display: none; }
             .hint-short { display: inline; }
+
+            .slide-rail { gap: 0.55rem; right: 0.7rem; }
+            .rail-tick { width: 0.5rem; }
+            .rail-tick.is-active { width: 1.1rem; }
         }
 
         @media (max-height: 560px) and (orientation: landscape) {
             :root { --hint-clearance: 3.5rem; }
+
+            .slide-rail { display: none; }
 
             .slide-caption {
                 bottom: calc(var(--hint-clearance) + env(safe-area-inset-bottom, 0px));
@@ -419,6 +504,8 @@
     </header>
 
     <main class="slides" id="slides" aria-label="Featured photography and films"></main>
+
+    <nav class="slide-rail" id="slideRail" aria-label="Jump to slide"></nav>
 
     <div class="hint">
         <span class="hint-full">Scroll — Click to enter</span>
@@ -448,14 +535,17 @@
     <script>
         // Landing slides — edit this list to change the infinite loop.
         // type: 'image' | 'video'.  sub is optional (leave '' to hide).
+        // Video slides name a clip; pickMedia() resolves it to the landscape or
+        // portrait encode plus the matching poster.
+        const ASSET_V = '?v=20260806';
         const LANDING_SLIDES = [
-            { type: 'video', src: 'CLIPS/05_Icefileds_1.mp4?v=20260804', poster: 'IMAGES/new/icefields-poster.jpg?v=20260804', title: 'Icefields Parkway', sub: 'Banff National Park' },
+            { type: 'video', clip: '05_Icefileds_1',                      title: 'Icefields Parkway', sub: 'Banff National Park' },
             { type: 'image', src: 'IMAGES/01.jpg',                        title: 'Takakkaw Falls', sub: 'Yoho National Park' },
             { type: 'image', src: 'IMAGES/new/cass-and-aiden.jpg',       title: 'Back to Me',      sub: 'Dirty Aesthetic · Cover Art' },
             { type: 'image', src: 'IMAGES/03.jpg',                        title: 'King\u2019s Peak', sub: 'Strathcona Provincial Park' },
-            { type: 'video', src: 'CLIPS/03_Fire_lookout_1.mp4?v=20260804', poster: 'IMAGES/video-posters/03_Fire_lookout_1.jpg?v=20260804', title: 'Hidden Lake Lookout', sub: 'North Cascades' },
+            { type: 'video', clip: '03_Fire_lookout_1',                   title: 'Hidden Lake Lookout', sub: 'North Cascades' },
             { type: 'image', src: 'IMAGES/new/man-under-snowy-mountain.jpg', title: 'Whistler',    sub: 'Avalanche Safety Training' },
-            { type: 'video', src: 'CLIPS/02_SAS_1.mp4?v=20260804', poster: 'IMAGES/video-posters/02_SAS_1.jpg?v=20260804', title: 'Saskatchewan', sub: 'Windmill', focus: 'left' },
+            { type: 'video', clip: '02_SAS_1',                             title: 'Saskatchewan', sub: 'Windmill', focus: 'left' },
             { type: 'image', src: 'IMAGES/06.jpg',                        title: 'Kokanee Glacier', sub: 'Provincial Park' },
         ];
 
@@ -464,12 +554,30 @@
         const isTouch =
             window.matchMedia('(pointer: coarse)').matches ||
             (navigator.maxTouchPoints || 0) > 0;
-        const isMobileLayout = window.matchMedia('(max-width: 768px)').matches;
+        // Live, not a snapshot: a phone rotating to landscape crosses this exact
+        // breakpoint, and leaving the portrait encode in a landscape viewport
+        // would crop it far harder than the landscape encode ever was.
+        const mobileLayoutMQ = window.matchMedia('(max-width: 768px)');
+        let isMobileLayout = mobileLayoutMQ.matches;
         // Dirty Aesthetic's smooth touch behavior comes from leaving iOS on
         // native scrolling (Lenis syncTouch is disabled there). Do the same:
         // Safari gets a finite snap list, while desktop keeps the smooth loop.
         const useNativeScroll = reduceMotion || isTouch || isMobileLayout;
         const useInfiniteLoop = !useNativeScroll;
+
+        // A 16:9 clip in a portrait phone viewport gets cropped to a narrow strip
+        // by object-fit: cover and then upscaled ~2.3x — that upscale, not the
+        // codec, is why the loops read as soft on a phone. The portrait encodes
+        // are pre-cropped to the same framing at native resolution.
+        // Keyed off layout width alone so it matches the <link media> preloads.
+        function pickMedia(item) {
+            if (item.type !== 'video') return { src: item.src, poster: item.poster };
+            const portrait = isMobileLayout;
+            return {
+                src: (portrait ? 'CLIPS/mobile/' : 'CLIPS/') + item.clip + '.mp4' + ASSET_V,
+                poster: 'IMAGES/video-posters/' + item.clip + (portrait ? '-m' : '') + '.jpg' + ASSET_V,
+            };
+        }
 
         // Always start from the first real slide on (re)load.
         if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
@@ -497,9 +605,16 @@
             const media = document.createElement('div');
             media.className = 'slide-media';
             if (item.focus === 'left') media.classList.add('media-focus-left');
+            // Portrait encodes are already cropped to this framing, so the CSS
+            // nudge would double-apply it.
+            if (item.type === 'video' && isMobileLayout) media.classList.add('media-precropped');
+
+            const resolved = pickMedia(item);
 
             if (item.type === 'video') {
                 const v = document.createElement('video');
+                // Not once-only: swapping to the other encode drops this class so
+                // the poster covers the reload, and it has to be re-earned.
                 const markVideoFrameReady = () => {
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => slide.classList.add('video-frame-ready'));
@@ -519,26 +634,26 @@
                 if (opts.priority && !reduceMotion) v.setAttribute('autoplay', '');
                 v.setAttribute('preload', opts.priority ? 'auto' : 'none');
                 v.setAttribute('disablepictureinpicture', '');
-                if (item.poster) v.poster = item.poster;
+                if (resolved.poster) v.poster = resolved.poster;
                 // Do not uncover Safari's native video surface until playback
                 // actually begins; a loaded-but-blocked video shows a play icon.
-                v.addEventListener('playing', markVideoFrameReady, { once: true });
+                v.addEventListener('playing', markVideoFrameReady);
 
-                // Every copy of the opening clip needs a drawable frame before
-                // Safari reaches it. Metadata preloading is cheap because all
-                // three elements share the same cached source response.
-                const isLoopOpeningVideo = useInfiniteLoop && displayIndex === 0;
-                if (opts.priority || isLoopOpeningVideo) {
-                    v.src = item.src;
-                    if (!opts.priority) v.preload = 'metadata';
+                // Only the opening slide loads eagerly. The duplicate copies used
+                // to preload metadata too, on the theory that the loop seam could
+                // land on one — but the seam is fixed at 2.5 slides either side of
+                // the run boundary, which lands on image slides both ways, so the
+                // observer below can attach them like any other clip.
+                if (opts.priority) {
+                    v.src = resolved.src;
                 } else {
-                    v.dataset.src = item.src;
+                    v.dataset.src = resolved.src;
                 }
                 media.appendChild(v);
-                if (item.poster) {
+                if (resolved.poster) {
                     const poster = document.createElement('img');
                     poster.className = 'video-poster';
-                    poster.src = item.poster;
+                    poster.src = resolved.poster;
                     poster.alt = '';
                     poster.setAttribute('aria-hidden', 'true');
                     poster.loading = opts.priority ? 'eager' : 'lazy';
@@ -548,7 +663,7 @@
                 }
             } else {
                 const img = document.createElement('img');
-                img.src = item.src;
+                img.src = resolved.src;
                 img.alt = item.title;
                 img.loading = opts.priority || opts.nearby ? 'eager' : 'lazy';
                 img.decoding = 'async';
@@ -585,6 +700,30 @@
 
         slidesEl.appendChild(frag);
         const slideEls = Array.from(document.querySelectorAll('.slide'));
+        const mediaEls = slideEls.map(s => s.firstElementChild);
+        // Physical slide index -> its video, so the scroll loop never has to run
+        // a querySelector or walk the DOM per frame.
+        const videoByIndex = new Map();
+        slideEls.forEach((slide, i) => {
+            const v = slide.querySelector('video');
+            if (v) videoByIndex.set(i, v);
+        });
+
+        // Every slide is exactly one viewport tall and they are stacked in order,
+        // so slide i's top is (i * SLIDE_H - scroll). Measuring that once and doing
+        // arithmetic replaces what used to be ~33 getBoundingClientRect() calls per
+        // frame across the parallax and video-visibility passes — each of which
+        // forced a synchronous layout while transforms were being written.
+        let SLIDE_H = 1;
+        function measureSlideHeight() {
+            const h = slideEls[IDX_FIRST_REAL] && slideEls[IDX_FIRST_REAL].offsetHeight;
+            SLIDE_H = h || window.innerHeight || 1;
+        }
+        measureSlideHeight();
+        window.addEventListener('resize', () => {
+            measureSlideHeight();
+            if (lenis) { try { lenis.resize(); } catch (_) {} }
+        }, { passive: true });
 
         let lenis = null;
 
@@ -654,10 +793,11 @@
         // layout pass can clamp wraps forever and freeze the main thread.
         let loopReady = false;
 
+        // Cached by measureSlideHeight(); re-measured on resize/orientation only.
+        // Reading offsetHeight here instead would reintroduce a layout flush on
+        // every frame of the scroll loop.
         function slideHeight() {
-            // Prefer measured slide height (handles mobile URL bar / svh)
-            const h = slideEls[IDX_FIRST_REAL] && slideEls[IDX_FIRST_REAL].offsetHeight;
-            return h || window.innerHeight || 1;
+            return SLIDE_H;
         }
 
         function scrollForIndex(i) {
@@ -741,10 +881,8 @@
         }
 
         function syncMatchingLoopVideo(fromY, toY, h) {
-            const sourceIndex = Math.round(fromY / h);
-            const targetIndex = Math.round(toY / h);
-            const source = slideEls[sourceIndex]?.querySelector('video');
-            const target = slideEls[targetIndex]?.querySelector('video');
+            const source = videoByIndex.get(Math.round(fromY / h));
+            const target = videoByIndex.get(Math.round(toY / h));
             if (!source || !target) return;
 
             attachLandingVideo(target);
@@ -807,30 +945,39 @@
 
         // Preserve the current slide through phone/tablet orientation changes.
         window.addEventListener('orientationchange', () => {
+            // Capture which slide we were on *before* re-measuring, so the new
+            // height doesn't move us to a different photograph.
+            const nearestIndex = Math.round(currentScroll() / SLIDE_H);
             setTimeout(() => {
-                let nearestIndex = IDX_FIRST_REAL;
-                let nearestDistance = Infinity;
-                slideEls.forEach((slide, index) => {
-                    const distance = Math.abs(slide.getBoundingClientRect().top);
-                    if (distance < nearestDistance) {
-                        nearestDistance = distance;
-                        nearestIndex = index;
-                    }
-                });
+                measureSlideHeight();
                 if (lenis) lenis.resize();
                 const targetY = scrollForIndex(realSnapIndex(nearestIndex));
                 scrollImmediately(targetY);
                 lastScroll = targetY;
                 resetParallax();
+                syncLandingVideos();
+                updateActiveSlide();
             }, 220);
         }, { passive: true });
 
         // ---------- Parallax ----------
+        // Writes only. Slide i's offset from the viewport top is (i - scroll/H)
+        // viewports, so nothing here needs to ask the layout engine anything.
+        const PARALLAX_AMOUNT = isTouch ? -3.2 : -5.5;
+        const lastShift = new Array(slideEls.length).fill(null);
+        let pFirst = 0, pLast = -1;
+
+        function setMediaShift(i, shift) {
+            if (lastShift[i] === shift) return;
+            lastShift[i] = shift;
+            const media = mediaEls[i];
+            if (media) media.style.transform = 'translate3d(0,' + shift + '%,0)';
+        }
+
         function resetParallax() {
-            for (const slide of slideEls) {
-                const media = slide.firstElementChild;
-                if (media) media.style.transform = 'translate3d(0,0,0)';
-            }
+            for (let i = 0; i < slideEls.length; i++) setMediaShift(i, 0);
+            pFirst = 0;
+            pLast = -1;
         }
 
         function updateParallax() {
@@ -839,31 +986,62 @@
                 resetParallax();
                 return;
             }
-            const vh = slideHeight();
-            const amount = isTouch ? -3.2 : -5.5;
-            for (const slide of slideEls) {
-                const media = slide.firstElementChild;
-                if (!media) continue;
-                const rect = slide.getBoundingClientRect();
-                if (rect.bottom <= 0 || rect.top >= vh) {
-                    media.style.transform = 'translate3d(0,0,0)';
-                    continue;
-                }
-                const progress = (rect.top + rect.height / 2 - vh / 2) / vh;
-                const shift = Math.max(-1, Math.min(1, progress)) * amount;
-                media.style.transform = 'translate3d(0,' + shift.toFixed(2) + '%,0)';
+            const base = currentScroll() / SLIDE_H;
+            // Only the slide under the viewport and its immediate neighbours can
+            // be visible, so at most four elements are ever touched per frame.
+            const first = Math.max(0, Math.floor(base) - 1);
+            const last = Math.min(slideEls.length - 1, Math.floor(base) + 2);
+            for (let i = pFirst; i <= pLast; i++) {
+                if (i < first || i > last) setMediaShift(i, 0);
             }
+            for (let i = first; i <= last; i++) {
+                const progress = Math.max(-1, Math.min(1, i - base));
+                setMediaShift(i, +(progress * PARALLAX_AMOUNT).toFixed(2));
+            }
+            pFirst = first;
+            pLast = last;
+        }
+
+        // ---------- Active slide ----------
+        // Drives the caption reveal and the progress rail. Only fires on change,
+        // so it costs two class writes per slide rather than anything per frame.
+        let activeIndex = -1;
+        const railTicks = [];
+
+        function displayIndexOf(physicalIndex) {
+            return ((physicalIndex % SLIDE_COUNT) + SLIDE_COUNT) % SLIDE_COUNT;
+        }
+
+        function updateActiveSlide(force) {
+            const i = Math.max(0, Math.min(slideEls.length - 1, Math.round(currentScroll() / SLIDE_H)));
+            if (i === activeIndex && !force) return;
+            if (slideEls[activeIndex]) slideEls[activeIndex].classList.remove('is-active');
+            activeIndex = i;
+            slideEls[i].classList.add('is-active');
+            const display = displayIndexOf(i);
+            railTicks.forEach((tick, t) => {
+                const on = t === display;
+                tick.classList.toggle('is-active', on);
+                tick.setAttribute('aria-current', on ? 'true' : 'false');
+            });
         }
 
         function raf(time) {
             lenis.raf(time);
             normalizeLoop();
             updateParallax();
+            updateActiveSlide();
+            // Level-triggered on purpose. Driving playback purely from scroll and
+            // scrollTo-onComplete events leaves the clip paused for good whenever
+            // Lenis cancels an interrupted animation without firing onComplete.
+            // The range check below early-outs in O(1), so this is nearly free.
+            syncLandingVideos();
             requestAnimationFrame(raf);
         }
         if (lenis) {
             requestAnimationFrame(raf);
             updateParallax();
+            updateActiveSlide();
         } else {
             let nativeScrollFrame = 0;
             window.addEventListener('scroll', () => {
@@ -871,6 +1049,7 @@
                 nativeScrollFrame = requestAnimationFrame(() => {
                     nativeScrollFrame = 0;
                     syncLandingVideos();
+                    updateActiveSlide();
                     scheduleNativeRecenter();
                 });
             }, { passive: true });
@@ -880,9 +1059,94 @@
                     clearTimeout(nativeRecenterTimer);
                     if (!touchActive) normalizeLoop();
                     syncLandingVideos();
+                    updateActiveSlide();
                 }, { passive: true });
             }
+            updateActiveSlide();
         }
+
+        // ---------- Direct navigation ----------
+        // Scrolling eight viewports to reach a photograph you can already see on
+        // the rail is the slow path; these give the keyboard and the rail a way
+        // to jump straight there.
+        function goToSlide(physicalIndex, opts = {}) {
+            const target = realSnapIndex(physicalIndex);
+            const y = target * SLIDE_H;
+            isSnapping = true;
+            if (lenis) {
+                lenis.scrollTo(y, {
+                    duration: opts.duration ?? 0.7,
+                    easing: (t) => 1 - Math.pow(1 - t, 4),
+                    lock: true,
+                    onComplete: () => {
+                        isSnapping = false;
+                        normalizeLoop();
+                        syncLandingVideos();
+                    },
+                });
+            } else {
+                window.scrollTo({ top: y, behavior: reduceMotion ? 'auto' : 'smooth' });
+                setTimeout(() => {
+                    isSnapping = false;
+                    normalizeLoop();
+                    syncLandingVideos();
+                }, 520);
+            }
+            lastScroll = y;
+        }
+
+        // Jump to a display index (0..SLIDE_COUNT-1) via whichever physical copy
+        // is closest, so the loop never animates through a whole run.
+        function goToDisplayIndex(display) {
+            const current = Math.round(currentScroll() / SLIDE_H);
+            const currentDisplay = displayIndexOf(current);
+            let delta = display - currentDisplay;
+            if (useInfiniteLoop) {
+                if (delta > SLIDE_COUNT / 2) delta -= SLIDE_COUNT;
+                else if (delta < -SLIDE_COUNT / 2) delta += SLIDE_COUNT;
+            }
+            goToSlide(current + delta);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (navigating || e.metaKey || e.ctrlKey || e.altKey) return;
+            const tag = (e.target && e.target.tagName) || '';
+            const onControl = tag === 'A' || tag === 'BUTTON';
+
+            let step = 0;
+            if (e.key === 'ArrowDown' || e.key === 'PageDown') step = 1;
+            else if (e.key === 'ArrowUp' || e.key === 'PageUp') step = -1;
+            else if (e.key === ' ' && !onControl) step = e.shiftKey ? -1 : 1;
+            else if (e.key === 'Enter' && !onControl) { enterSite(); return; }
+            else if (e.key === 'Home') {
+                e.preventDefault();
+                goToSlide(IDX_FIRST_REAL);
+                return;
+            } else return;
+
+            e.preventDefault();
+            clearTimeout(nativeRecenterTimer);
+            goToSlide(Math.round(currentScroll() / SLIDE_H) + step, { duration: 0.55 });
+        });
+
+        // ---------- Progress rail ----------
+        (function buildRail() {
+            const rail = document.getElementById('slideRail');
+            if (!rail) return;
+            LANDING_SLIDES.forEach((item, i) => {
+                const tick = document.createElement('button');
+                tick.type = 'button';
+                tick.className = 'rail-tick';
+                tick.dataset.index = String(i);
+                tick.setAttribute('aria-label', (i + 1) + '. ' + item.title);
+                tick.addEventListener('click', () => goToDisplayIndex(i));
+                rail.appendChild(tick);
+                railTicks.push(tick);
+            });
+            // The scroll loop may already have settled activeIndex before the
+            // ticks existed, so force the first paint rather than diffing.
+            updateActiveSlide(true);
+        })();
 
         // ---------- Magnetic snap ----------
         if (lenis) {
@@ -895,19 +1159,6 @@
             const VEL_IDLE = 2.8;
             const SNAP_DEADZONE = 3;
 
-            function nearestSlide() {
-                let best = null, bestDist = Infinity, bestIndex = 0;
-                slideEls.forEach((s, i) => {
-                    const dist = Math.abs(s.getBoundingClientRect().top);
-                    if (dist < bestDist) {
-                        bestDist = dist;
-                        best = s;
-                        bestIndex = i;
-                    }
-                });
-                return { best, bestDist, bestIndex };
-            }
-
             function snapToNearest() {
                 if (navigating || isSnapping || wrapping || touchActive) return;
                 if (Math.abs(lastVelocity) > VEL_IDLE) {
@@ -918,16 +1169,15 @@
 
                 normalizeLoop();
 
-                const { bestDist, bestIndex } = nearestSlide();
-                const targetIndex = realSnapIndex(bestIndex);
-                const target = slideEls[targetIndex];
-                if (!target) return;
-
-                const dist = Math.abs(target.getBoundingClientRect().top);
-                if (dist < SNAP_DEADZONE) return;
+                // Stacked equal-height slides: the nearest one is just the rounded
+                // scroll offset, no need to measure all 24.
+                const y = currentScroll();
+                const targetIndex = realSnapIndex(Math.round(y / SLIDE_H));
+                const targetY = targetIndex * SLIDE_H;
+                if (Math.abs(targetY - y) < SNAP_DEADZONE) return;
 
                 isSnapping = true;
-                lenis.scrollTo(target, {
+                lenis.scrollTo(targetY, {
                     duration: SNAP_DURATION,
                     easing: easeOutQuart,
                     lock: false,
@@ -961,15 +1211,23 @@
                 scheduleSnap();
             });
 
-            ['wheel', 'keydown'].forEach(evt => {
-                window.addEventListener(evt, () => {
-                    // Lenis cancels an interrupted scrollTo animation without
-                    // always firing onComplete. Release our snap guard here so a
-                    // hard reversal can still trigger the loop recenter.
-                    isSnapping = false;
-                    clearTimeout(snapTimer);
-                }, { passive: true });
-            });
+            // Lenis cancels an interrupted scrollTo animation without always
+            // firing onComplete. Release our snap guard here so a hard reversal
+            // can still trigger the loop recenter.
+            const releaseSnapGuard = () => {
+                isSnapping = false;
+                clearTimeout(snapTimer);
+            };
+            window.addEventListener('wheel', releaseSnapGuard, { passive: true });
+            // Navigation keys drive goToSlide(), which owns isSnapping for the
+            // duration of its animation — releasing it here would let the magnetic
+            // snap retarget mid-jump and fight it.
+            const NAV_KEYS = new Set([
+                'ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', ' ', 'Enter',
+            ]);
+            window.addEventListener('keydown', (e) => {
+                if (!NAV_KEYS.has(e.key)) releaseSnapGuard();
+            }, { passive: true });
         }
 
         // ---------- Video lifecycle ----------
@@ -989,6 +1247,10 @@
 
         function showLandingVideoStill(video) {
             attachLandingVideo(video);
+            // syncLandingVideos() now runs every frame, so this must be idempotent
+            // — re-seeking an already-parked clip would thrash the decoder.
+            if (video.dataset.parked === '1') return;
+            video.dataset.parked = '1';
             video.pause();
             const seekToFirstFrame = () => {
                 try { video.currentTime = 0.001; } catch (_) {}
@@ -1005,23 +1267,35 @@
                 showLandingVideoStill(video);
                 return;
             }
+            // play() on an already-playing element still allocates a promise and
+            // churns the media pipeline. This used to run once per video per
+            // frame for the whole scroll.
+            if (!video.paused) return;
             const playPromise = video.play();
             if (playPromise && playPromise.catch) playPromise.catch(() => {});
         }
 
+        // Derives the desired play state from scroll position alone and reconciles
+        // every clip against it. Deliberately stateless: the previous version
+        // remembered the last visible range and skipped the pass when it hadn't
+        // changed, which meant any clip paused by something else — an interrupted
+        // scrollTo, a tab switch — stayed paused until the range moved again.
+        //
+        // Cheap enough to run every frame: no getBoundingClientRect, and both
+        // play() and pause() are guarded on the element's current state, so a
+        // steady-state frame is nine boolean reads and nothing else.
         function syncLandingVideos() {
             if (document.hidden || navigating) {
-                landingVideos.forEach(video => video.pause());
+                landingVideos.forEach(video => { if (!video.paused) video.pause(); });
                 return;
             }
-            const viewportHeight = window.visualViewport?.height || window.innerHeight || 1;
-            landingVideos.forEach(video => {
-                const slide = video.closest('.slide');
-                const rect = slide ? slide.getBoundingClientRect() : video.getBoundingClientRect();
-                const visiblePixels = Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0);
-                const visibleRatio = Math.max(0, visiblePixels) / Math.max(1, rect.height);
-                if (visibleRatio > 0.12) playLandingVideo(video);
-                else video.pause();
+            const base = currentScroll() / SLIDE_H;
+            const first = Math.max(0, Math.floor(base));
+            const last = Math.min(slideEls.length - 1, Math.ceil(base + 0.88) - 1);
+
+            videoByIndex.forEach((video, i) => {
+                if (i >= first && i <= last) playLandingVideo(video);
+                else if (!video.paused) video.pause();
             });
         }
 
@@ -1046,6 +1320,64 @@
 
         document.addEventListener('visibilitychange', syncLandingVideos);
         window.addEventListener('pageshow', syncLandingVideos);
+
+        // Re-point every clip at the encode that matches the current layout.
+        // Only the media is swapped, never the scroll mode — rebuilding the loop
+        // mid-session would undo the seating and the Safari-specific handling.
+        function swapVideoVariants() {
+            slideEls.forEach((slide, i) => {
+                const item = LANDING_SLIDES[Number(slide.dataset.slideIndex)];
+                if (!item || item.type !== 'video') return;
+                const video = videoByIndex.get(i);
+                if (!video) return;
+
+                const next = pickMedia(item);
+                const media = slide.firstElementChild;
+                if (media) media.classList.toggle('media-precropped', isMobileLayout);
+
+                const posterImg = slide.querySelector('.video-poster');
+                if (posterImg) posterImg.src = next.poster;
+                video.poster = next.poster;
+
+                if (!video.src) {
+                    // Never attached — just retarget the lazy source.
+                    video.dataset.src = next.src;
+                    return;
+                }
+                if (video.src.endsWith(next.src)) return;
+
+                const resumeAt = video.currentTime;
+                const wasPlaying = !video.paused;
+                // Drop back to the poster so the reload doesn't flash black.
+                slide.classList.remove('video-frame-ready');
+                video.src = next.src;
+                video.addEventListener('loadedmetadata', () => {
+                    try { video.currentTime = resumeAt % (video.duration || 1); } catch (_) {}
+                    if (wasPlaying) playLandingVideo(video);
+                }, { once: true });
+                try { video.load(); } catch (_) {}
+            });
+            // The rAF loop reconciles playback on desktop, but the native-scroll
+            // path is event-driven — without this a swap with no scroll after it
+            // would leave the on-screen clip parked.
+            syncLandingVideos();
+        }
+
+        const onLayoutBreakpointChange = (e) => {
+            isMobileLayout = e.matches;
+            swapVideoVariants();
+        };
+        if (mobileLayoutMQ.addEventListener) mobileLayoutMQ.addEventListener('change', onLayoutBreakpointChange);
+        else if (mobileLayoutMQ.addListener) mobileLayoutMQ.addListener(onLayoutBreakpointChange);
+
+        // The breakpoint can also be wrong on arrival: some browsers finish
+        // establishing the viewport after this script parses, so matchMedia can
+        // report the pre-layout width. Reconcile once the first frame is real.
+        requestAnimationFrame(() => {
+            if (mobileLayoutMQ.matches === isMobileLayout) return;
+            isMobileLayout = mobileLayoutMQ.matches;
+            swapVideoVariants();
+        });
 
         // Arrive under the branded veil, then fade it once the opening clip
         // has a real frame — no stacked long waits (those felt "extra long").
