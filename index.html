@@ -726,8 +726,13 @@
         // forced a synchronous layout while transforms were being written.
         let SLIDE_H = 1;
         function measureSlideHeight() {
-            const h = slideEls[IDX_FIRST_REAL] && slideEls[IDX_FIRST_REAL].offsetHeight;
-            SLIDE_H = h || window.innerHeight || 1;
+            const measured = (slideEls[IDX_FIRST_REAL] && slideEls[IDX_FIRST_REAL].offsetHeight) || 0;
+            const next = measured > 200 ? measured : (window.innerHeight || 0);
+            // Only ever latch onto a plausible height. Taking a zero here — layout
+            // not settled, or a tab that loaded in the background — would make
+            // every slide index and scroll target derived from it meaningless,
+            // which reads to a visitor as the page refusing to scroll.
+            if (next > 200) SLIDE_H = next;
         }
         measureSlideHeight();
         window.addEventListener('resize', () => {
@@ -1262,6 +1267,14 @@
 
             function handleWheel(event) {
                 if (navigating || reduceMotion || event.ctrlKey || !event.deltaY) return;
+
+                // Fail open, never closed. Every step is computed from SLIDE_H, so
+                // if that is ever wrong the page would swallow the wheel and move
+                // nothing — dead scrolling, with only the rail left working. Rather
+                // than preventDefault into a broken stepper, hand the gesture back
+                // to the browser and let the page scroll normally.
+                if (!(SLIDE_H > 200) || slideEls.length < 2) return;
+
                 event.preventDefault();
 
                 // deltaMode 1 is lines, 2 is pages — normalise both to pixels.
@@ -1273,6 +1286,12 @@
                 const now = event.timeStamp || performance.now();
                 const magnitude = Math.abs(delta);
                 const gap = now - lastWheelTime;
+
+                // Re-measure once per gesture, not per event. Cheap at this rate,
+                // and it self-heals a stale height after any viewport change that
+                // never fired a resize — an iOS URL bar collapsing, a zoom, a
+                // devtools pane opening.
+                if (gap > GESTURE_GAP) measureSlideHeight();
 
                 // A momentum tail only ever decays; a new push from the finger has
                 // a rising edge. Counting consecutive rises detects fresh intent
