@@ -561,9 +561,16 @@
         let isMobileLayout = mobileLayoutMQ.matches;
         // Dirty Aesthetic's smooth touch behavior comes from leaving iOS on
         // native scrolling (Lenis syncTouch is disabled there). Do the same:
-        // Safari gets a finite snap list, while desktop keeps the smooth loop.
+        // Safari keeps CSS scroll-snap, while desktop gets the section stepper.
         const useNativeScroll = reduceMotion || isTouch || isMobileLayout;
-        const useInfiniteLoop = !useNativeScroll;
+        // The loop is infinite everywhere. Touch used to build a single finite run
+        // so Safari never had to remap scroll during momentum, but that made the
+        // last slide a dead end on exactly the devices most people arrive on.
+        // normalizeLoop() only ever remaps between gestures — scheduleNativeRecenter()
+        // waits for touchend and a settled scroll — so the jump never lands mid-fling,
+        // and it swaps between identical runs, so no pixel on screen changes.
+        // Reduced-motion still opts out: remapping scroll is itself motion.
+        const useInfiniteLoop = !reduceMotion;
 
         // A 16:9 clip in a portrait phone viewport gets cropped to a narrow strip
         // by object-fit: cover and then upscaled ~2.3x — that upscale, not the
@@ -667,7 +674,10 @@
                 img.alt = item.title;
                 img.loading = opts.priority || opts.nearby ? 'eager' : 'lazy';
                 img.decoding = 'async';
-                if (opts.priority) img.fetchPriority = 'high';
+                // The slide after the opening clip is the first thing a visitor
+                // scrolls to, and it is the heaviest photograph on the page, so it
+                // needs the same priority as the hero rather than eager-but-idle.
+                if (opts.priority || opts.nearby) img.fetchPriority = 'high';
                 media.appendChild(img);
             }
 
@@ -840,13 +850,24 @@
 
         ensureLenis();
         seatAtFirstReal();
+
+        function armLoop() {
+            if (loopReady) return;
+            measureSlideHeight();
+            seatAtFirstReal();
+            loopReady = true;
+        }
+
         requestAnimationFrame(() => {
             seatAtFirstReal();
-            requestAnimationFrame(() => {
-                seatAtFirstReal();
-                loopReady = true;
-            });
+            requestAnimationFrame(armLoop);
         });
+        // rAF never runs while the tab is in the background, and the loop is gated
+        // on loopReady — so a page opened in a background tab, or throttled on a
+        // low-power phone, would come to the foreground with the infinite loop
+        // permanently disarmed and the last slide a dead end. Arm it on a timer as
+        // well; armLoop() is idempotent, so whichever path runs first wins.
+        setTimeout(armLoop, 400);
 
         document.documentElement.style.touchAction = 'pan-y';
         document.body.style.touchAction = 'pan-y';
@@ -1213,16 +1234,27 @@
         // deadlock against a mouse wheel that arrives at a constant rate.
         if (lenis) {
             const WHEEL_THRESHOLD = 40;     // accumulated delta before advancing
-            const WHEEL_TAIL_FLOOR = 5;     // below this is momentum decay, not intent
             const GESTURE_GAP = 90;         // ms of quiet that marks a new gesture
             const CONTINUOUS_ADVANCE = 950; // ms; unbroken input still steps this often
             const SUSTAIN_RATIO = 0.5;      // vs the gesture's peak: sustained, not decaying
+            // Momentum is rejected by the *shape* of the stream, not by absolute
+            // magnitude. An absolute floor here ("ignore anything under 5px")
+            // silently bricked the page on any device whose every event is 1-4px
+            // — Magic Mouse, precision trackpads, and slow trackpad swipes. Since
+            // the handler preventDefaults, rejecting every event meant no
+            // scrolling at all rather than merely a missed step.
+            const TAIL_RATIO = 0.06;        // ignore only what is tiny NEXT TO this gesture's peak
+            const REARM_MS = 220;           // earliest a fresh push may re-advance
+            const RISE_RUN = 3;             // consecutive rising events that mark a new push
+            const RISE_FACTOR = 1.15;       // how much bigger each must be to count as rising
 
             let wheelAccum = 0;
             let lastWheelTime = 0;
             let lastAdvanceAt = 0;
             let sawGapSinceAdvance = true;
             let gesturePeak = 0;
+            let lastMagnitude = 0;
+            let risingRun = 0;
 
             function currentSlideIndex() {
                 return realSnapIndex(Math.round(currentScroll() / SLIDE_H));
@@ -1242,18 +1274,34 @@
                 const magnitude = Math.abs(delta);
                 const gap = now - lastWheelTime;
 
+                // A momentum tail only ever decays; a new push from the finger has
+                // a rising edge. Counting consecutive rises detects fresh intent
+                // regardless of how large a given device's deltas are. A uniform
+                // mouse wheel never rises, so this can never be the *only* way to
+                // advance — that case is served by CONTINUOUS_ADVANCE below, which
+                // is what keeps the whole scheme from deadlocking.
+                if (gap > GESTURE_GAP) {
+                    risingRun = 0;
+                    lastMagnitude = 0;
+                }
+                if (magnitude > lastMagnitude * RISE_FACTOR) risingRun++;
+                else risingRun = 0;
+                lastMagnitude = magnitude;
+                const newPush = risingRun >= RISE_RUN && (now - lastAdvanceAt) >= REARM_MS;
+
                 // Mid-transition. Momentum arrives as an unbroken stream and is
                 // dropped, so a fling cannot buy itself extra slides. A distinct new
-                // gesture — a pause in front of it and real weight behind it —
-                // retargets one further along, so deliberate notches during the
-                // animation chain smoothly instead of being thrown away.
+                // gesture — a pause in front of it, or a clear rising edge — retargets
+                // one further along, so a deliberate second swipe during the animation
+                // chains smoothly instead of being thrown away.
                 if (now < animatingUntil) {
                     lastWheelTime = now;
                     wheelAccum = 0;
-                    if (gap > GESTURE_GAP && magnitude >= WHEEL_THRESHOLD) {
-                        gesturePeak = magnitude;
+                    if ((gap > GESTURE_GAP && magnitude >= WHEEL_THRESHOLD) || newPush) {
+                        gesturePeak = Math.max(gesturePeak, magnitude);
                         sawGapSinceAdvance = false;
                         lastAdvanceAt = now;
+                        risingRun = 0;
                         const from = targetSlideIndex >= 0 ? targetSlideIndex : currentSlideIndex();
                         goToSlide(from + Math.sign(delta));
                     }
@@ -1270,9 +1318,10 @@
                     gesturePeak = 0;
                 }
 
-                // The tail of a trackpad fling decays toward zero. Real intent — a
-                // wheel notch or a fresh push — arrives well above this.
-                if (magnitude < WHEEL_TAIL_FLOOR) return;
+                // Relative, not absolute: "small" only means something next to this
+                // gesture's own peak, so a device that never exceeds 4px still
+                // accumulates normally.
+                if (gesturePeak && magnitude < gesturePeak * TAIL_RATIO) return;
 
                 gesturePeak = Math.max(gesturePeak, magnitude);
                 wheelAccum += delta;
@@ -1286,11 +1335,10 @@
                 // against the gesture's own peak separates the two without ever
                 // locking the wheel out.
                 if (!sawGapSinceAdvance) {
-                    if (now - lastAdvanceAt < CONTINUOUS_ADVANCE) {
-                        wheelAccum = 0;
-                        return;
-                    }
-                    if (magnitude < gesturePeak * SUSTAIN_RATIO) {
+                    const since = now - lastAdvanceAt;
+                    const sustained = since >= CONTINUOUS_ADVANCE
+                        && magnitude >= gesturePeak * SUSTAIN_RATIO;
+                    if (!sustained && !newPush) {
                         wheelAccum = 0;
                         return;
                     }
@@ -1300,6 +1348,7 @@
                 wheelAccum = 0;
                 sawGapSinceAdvance = false;
                 lastAdvanceAt = now;
+                risingRun = 0;
                 goToSlide(currentSlideIndex() + direction);
             }
 
