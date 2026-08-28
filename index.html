@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Jacob Nadal — The Traversal</title>
-    <link rel="icon" type="image/jpeg" href="FAVICON.jpg">
-    <link rel="apple-touch-icon" href="FAVICON.jpg">
+    <link rel="icon" type="image/jpeg" href="assets/site/favicon.jpg">
+    <link rel="apple-touch-icon" href="assets/site/favicon.jpg">
     <!-- Preload first-screen media + warm the mosaic so enter feels instant.
          Desktop pulls the 1080p landscape encode, phones the portrait crop, so
          neither downloads pixels the other will never show. Each poster is
          frame 0 of its own encode, which makes the poster->video swap invisible. -->
-    <link rel="preload" href="IMAGES/video-posters/05_Icefileds_1.jpg?v=20260806" as="image" fetchpriority="high" media="(min-width: 769px)">
-    <link rel="preload" href="IMAGES/video-posters/05_Icefileds_1-m.jpg?v=20260806" as="image" fetchpriority="high" media="(max-width: 768px)">
-    <link rel="preload" href="CLIPS/05_Icefileds_1.mp4?v=20260806" as="video" type="video/mp4" media="(min-width: 769px)">
-    <link rel="preload" href="CLIPS/mobile/05_Icefileds_1.mp4?v=20260806" as="video" type="video/mp4" media="(max-width: 768px)">
+    <link rel="preload" href="assets/posters/icefields-1.jpg?v=20260827" as="image" fetchpriority="high" media="(min-width: 769px)">
+    <link rel="preload" href="assets/posters/icefields-1-m.jpg?v=20260827" as="image" fetchpriority="high" media="(max-width: 768px)">
+    <link rel="preload" href="assets/video/icefields-1.mp4?v=20260827" as="video" type="video/mp4" media="(min-width: 769px)">
+    <link rel="preload" href="assets/video/mobile/icefields-1.mp4?v=20260827" as="video" type="video/mp4" media="(max-width: 768px)">
     <link rel="prefetch" href="mosaic.html">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,12 +51,6 @@
             width: 0;
             height: 0;
         }
-
-        /* Recommended Lenis styles */
-        html.lenis, html.lenis body { height: auto; }
-        .lenis.lenis-smooth { scroll-behavior: auto !important; }
-        .lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
-        .lenis.lenis-stopped { overflow: hidden; }
 
         /* Touch devices keep scrolling on Safari's compositor, matching the
            native-touch path used by the Dirty Aesthetic site. */
@@ -531,22 +525,26 @@
             window.__clearArriveVeil = clearArriveVeil;
         })();
     </script>
-    <script src="vendor/lenis.min.js"></script>
+    <!-- No Lenis here any more. The section stepper below owns the wheel, so the
+         only thing left for a smooth-scroll library to do was run the transition
+         — and routing that through lenis.scrollTo() meant a whole dependency
+         sitting between a gesture and the page moving. The Dirty Aesthetic
+         landing page tweens window.scrollTo() directly for exactly this reason. -->
     <script>
         // Landing slides — edit this list to change the infinite loop.
         // type: 'image' | 'video'.  sub is optional (leave '' to hide).
         // Video slides name a clip; pickMedia() resolves it to the landscape or
         // portrait encode plus the matching poster.
-        const ASSET_V = '?v=20260806';
+        const ASSET_V = '?v=20260827';
         const LANDING_SLIDES = [
-            { type: 'video', clip: '05_Icefileds_1',                      title: 'Icefields Parkway', sub: 'Banff National Park' },
-            { type: 'image', src: 'IMAGES/01.jpg',                        title: 'Takakkaw Falls', sub: 'Yoho National Park' },
-            { type: 'image', src: 'IMAGES/new/cass-and-aiden.jpg',       title: 'Back to Me',      sub: 'Dirty Aesthetic · Cover Art' },
-            { type: 'image', src: 'IMAGES/03.jpg',                        title: 'King\u2019s Peak', sub: 'Strathcona Provincial Park' },
-            { type: 'video', clip: '03_Fire_lookout_1',                   title: 'Hidden Lake Lookout', sub: 'North Cascades' },
-            { type: 'image', src: 'IMAGES/new/man-under-snowy-mountain.jpg', title: 'Whistler',    sub: 'Avalanche Safety Training' },
-            { type: 'video', clip: '02_SAS_1',                             title: 'Saskatchewan', sub: 'Windmill', focus: 'left' },
-            { type: 'image', src: 'IMAGES/06.jpg',                        title: 'Kokanee Glacier', sub: 'Provincial Park' },
+            { type: 'video', clip: 'icefields-1'   ,                      title: 'Icefields Parkway', sub: 'Banff National Park' },
+            { type: 'image', src: 'assets/photos/01.jpg',                        title: 'Takakkaw Falls', sub: 'Yoho National Park' },
+            { type: 'image', src: 'assets/photos/cass-and-aiden.jpg',       title: 'Back to Me',      sub: 'Dirty Aesthetic · Cover Art' },
+            { type: 'image', src: 'assets/photos/03.jpg',                        title: 'King\u2019s Peak', sub: 'Strathcona Provincial Park' },
+            { type: 'video', clip: 'fire-lookout-1',                   title: 'Hidden Lake Lookout', sub: 'North Cascades' },
+            { type: 'image', src: 'assets/photos/man-under-snowy-mountain.jpg', title: 'Whistler',    sub: 'Avalanche Safety Training' },
+            { type: 'video', clip: 'saskatchewan-1',                             title: 'Saskatchewan', sub: 'Windmill', focus: 'left' },
+            { type: 'image', src: 'assets/photos/06.jpg',                        title: 'Kokanee Glacier', sub: 'Provincial Park' },
         ];
 
         const MOSAIC_URL = 'mosaic.html';
@@ -581,8 +579,8 @@
             if (item.type !== 'video') return { src: item.src, poster: item.poster };
             const portrait = isMobileLayout;
             return {
-                src: (portrait ? 'CLIPS/mobile/' : 'CLIPS/') + item.clip + '.mp4' + ASSET_V,
-                poster: 'IMAGES/video-posters/' + item.clip + (portrait ? '-m' : '') + '.jpg' + ASSET_V,
+                src: (portrait ? 'assets/video/mobile/' : 'assets/video/') + item.clip + '.mp4' + ASSET_V,
+                poster: 'assets/posters/' + item.clip + (portrait ? '-m' : '') + '.jpg' + ASSET_V,
             };
         }
 
@@ -737,10 +735,7 @@
         measureSlideHeight();
         window.addEventListener('resize', () => {
             measureSlideHeight();
-            if (lenis) { try { lenis.resize(); } catch (_) {} }
         }, { passive: true });
-
-        let lenis = null;
 
         // ---------- Enter navigation ----------
         let navigating = false;
@@ -760,10 +755,6 @@
                 }
             }
             syncLandingVideos();
-            if (lenis) {
-                try { lenis.start(); } catch (_) {}
-                try { lenis.resize(); } catch (_) {}
-            }
         }
 
         function enterSite() {
@@ -771,10 +762,7 @@
             navigating = true;
             window.__landingNavigating = true;
             document.querySelectorAll('.slide-media video').forEach(video => video.pause());
-            if (lenis) {
-                try { lenis.stop(); } catch (_) {}
-            }
-            document.documentElement.classList.remove('lenis', 'lenis-smooth');
+            if (tweenFrame) { cancelAnimationFrame(tweenFrame); tweenFrame = 0; }
             const v = document.getElementById('enterVeil');
             if (v) {
                 v.classList.remove('is-fading');
@@ -818,42 +806,12 @@
             return i * slideHeight();
         }
 
-        function ensureLenis() {
-            if (useNativeScroll || !window.Lenis) return;
-            if (lenis) return;
-            try {
-                lenis = new Lenis({
-                    infinite: false,
-                    wheelMultiplier: 0.85,
-                    duration: 1.05,
-                    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-                    gestureOrientation: 'vertical',
-                    // The section stepper below owns the wheel; Lenis interpolating
-                    // the same gesture would fight it. Lenis is still what moves the
-                    // page — scrollTo() drives every transition — so its scroll value
-                    // stays authoritative for the loop and parallax.
-                    smoothWheel: false,
-                    syncTouch: false,
-                });
-            } catch (_) {
-                lenis = null;
-            }
-        }
-
         function seatAtFirstReal() {
             const y = scrollForIndex(IDX_FIRST_REAL);
-            if (lenis) {
-                try {
-                    lenis.resize();
-                    lenis.scrollTo(y, { immediate: true, force: true });
-                } catch (_) {}
-            } else {
-                window.scrollTo(0, y);
-            }
+            window.scrollTo(0, y);
             lastScroll = y;
         }
 
-        ensureLenis();
         seatAtFirstReal();
 
         function armLoop() {
@@ -898,14 +856,11 @@
         // Recenter between identical runs while there is still a full viewport of
         // runway in either direction. The visible pixels do not change.
         function currentScroll() {
-            return lenis ? lenis.scroll : window.scrollY;
+            return window.scrollY;
         }
 
         function scrollImmediately(y) {
-            if (lenis) {
-                lenis.scrollTo(y, { immediate: true, force: true });
-                return;
-            }
+            if (tweenFrame) { cancelAnimationFrame(tweenFrame); tweenFrame = 0; }
             window.scrollTo({ top: y, left: 0, behavior: 'auto' });
         }
 
@@ -979,7 +934,6 @@
             const nearestIndex = Math.round(currentScroll() / SLIDE_H);
             setTimeout(() => {
                 measureSlideHeight();
-                if (lenis) lenis.resize();
                 const targetY = scrollForIndex(realSnapIndex(nearestIndex));
                 scrollImmediately(targetY);
                 lastScroll = targetY;
@@ -1055,19 +1009,19 @@
             });
         }
 
-        function raf(time) {
-            lenis.raf(time);
+        function raf() {
             normalizeLoop();
             updateParallax();
             updateActiveSlide();
-            // Level-triggered on purpose. Driving playback purely from scroll and
-            // scrollTo-onComplete events leaves the clip paused for good whenever
-            // Lenis cancels an interrupted animation without firing onComplete.
-            // The range check below early-outs in O(1), so this is nearly free.
+            // Level-triggered on purpose. Driving playback purely from scroll
+            // events leaves a clip paused for good whenever a transition is
+            // interrupted. The range check inside early-outs in O(1).
             syncLandingVideos();
             requestAnimationFrame(raf);
         }
-        if (lenis) {
+        // The stepper path runs its own frame loop; the touch path stays entirely
+        // event-driven so Safari keeps scrolling on the compositor.
+        if (!useNativeScroll) {
             requestAnimationFrame(raf);
             updateParallax();
             updateActiveSlide();
@@ -1110,6 +1064,31 @@
         let animatingUntil = 0;
         let targetSlideIndex = -1;
         let transitionToken = 0;
+        let tweenFrame = 0;
+
+        // Straight rAF tween over window.scrollTo, lifted from the Dirty Aesthetic
+        // landing page. Nothing sits between the gesture and the page moving.
+        function tweenTo(y, onDone) {
+            if (tweenFrame) cancelAnimationFrame(tweenFrame);
+            const from = window.scrollY;
+            const distance = y - from;
+            if (!distance) {
+                if (onDone) onDone();
+                return;
+            }
+            const start = performance.now();
+            const step = (now) => {
+                const t = Math.min(1, (now - start) / SECTION_DURATION);
+                window.scrollTo(0, Math.round(from + distance * easeInOutCubic(t)));
+                if (t < 1) {
+                    tweenFrame = requestAnimationFrame(step);
+                } else {
+                    tweenFrame = 0;
+                    if (onDone) onDone();
+                }
+            };
+            tweenFrame = requestAnimationFrame(step);
+        }
 
         function goToSlide(physicalIndex, opts = {}) {
             const target = realSnapIndex(physicalIndex);
@@ -1123,11 +1102,13 @@
             isSnapping = true;
             const token = ++transitionToken;
 
+            let settled = false;
             const settle = () => {
                 // A chained gesture retargets mid-flight. If the superseded
                 // animation still reports completion, it must not clear the state
                 // that now belongs to the newer one.
-                if (token !== transitionToken) return;
+                if (settled || token !== transitionToken) return;
+                settled = true;
                 isSnapping = false;
                 animatingUntil = 0;
                 normalizeLoop();
@@ -1137,22 +1118,22 @@
                 targetSlideIndex = -1;
             };
 
-            if (lenis) {
-                lenis.scrollTo(y, {
-                    duration: durationMs / 1000,
-                    easing: easeInOutCubic,
-                    // force, and no lock. Lenis bails out of scrollTo() early when
-                    // isLocked is set, so locking would silently swallow the
-                    // retarget that chains a second gesture onto a transition
-                    // already in flight. Nothing else can move the page anyway —
-                    // smoothWheel is off and handleWheel preventDefaults.
-                    lock: false,
-                    force: true,
-                    onComplete: settle,
-                });
+            if (reduceMotion) {
+                window.scrollTo(0, y);
+                settle();
             } else {
-                window.scrollTo({ top: y, behavior: reduceMotion ? 'auto' : 'smooth' });
-                setTimeout(settle, durationMs);
+                tweenTo(y, settle);
+                // The tween runs on rAF, which stops dead in a background tab. If
+                // that happens mid-transition the animation never finishes, so
+                // isSnapping stays set, the loop stops remapping and the page is
+                // stuck on a half-scrolled slide. Land it on a timer instead —
+                // settle() is idempotent, so whichever finishes first wins.
+                setTimeout(() => {
+                    if (settled || token !== transitionToken) return;
+                    if (tweenFrame) { cancelAnimationFrame(tweenFrame); tweenFrame = 0; }
+                    if (Math.round(window.scrollY) !== Math.round(y)) window.scrollTo(0, y);
+                    settle();
+                }, durationMs + 150);
             }
             lastScroll = y;
         }
@@ -1237,7 +1218,10 @@
         // immediately afterwards. Nothing can extend the deadline, so unlike a
         // scheme that waits for momentum to decay before re-arming, it cannot
         // deadlock against a mouse wheel that arrives at a constant rate.
-        if (lenis) {
+        //
+        // Gated on the layout, not on whether a scroll library happened to load.
+        // Touch keeps CSS scroll-snap; a pointer device gets the stepper.
+        if (!useNativeScroll) {
             const WHEEL_THRESHOLD = 40;     // accumulated delta before advancing
             const GESTURE_GAP = 90;         // ms of quiet that marks a new gesture
             const CONTINUOUS_ADVANCE = 950; // ms; unbroken input still steps this often
@@ -1372,16 +1356,6 @@
             }
 
             window.addEventListener('wheel', handleWheel, { passive: false });
-
-            // Keep the loop and video playback in step with Lenis, but nothing here
-            // schedules a snap any more — scroll only moves via goToSlide(), which
-            // always lands exactly on a slide.
-            lenis.on('scroll', ({ scroll }) => {
-                lastScroll = scroll;
-                syncLandingVideos();
-                if (wrapping) return;
-                normalizeLoop();
-            });
         }
 
         // ---------- Video lifecycle ----------
@@ -1595,16 +1569,8 @@
             isSnapping = false;
             touchActive = false;
             revealLanding(true);
-            if (!lenis) ensureLenis();
-            if (lenis) {
-                try { lenis.start(); } catch (_) {}
-                try { lenis.resize(); } catch (_) {}
-                try {
-                    lenis.scrollTo(scrollForIndex(IDX_FIRST_REAL), { immediate: true, force: true });
-                } catch (_) {}
-            } else {
-                scrollImmediately(scrollForIndex(IDX_FIRST_REAL));
-            }
+            measureSlideHeight();
+            scrollImmediately(scrollForIndex(IDX_FIRST_REAL));
             lastScroll = scrollForIndex(IDX_FIRST_REAL);
         });
     </script>

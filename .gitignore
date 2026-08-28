@@ -1,27 +1,25 @@
+# Camera and scanner originals, plus anything retired from the site.
+# These stay on disk and never reach the repository or the published site —
+# scripts/ regenerates everything under assets/ from them.
+_masters/
+
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
 ._*
 
-# Thumbnails
-Thumbs.db
-
-# IDE
+# Editors
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# Local development
+# Local
 .env
 .env.local
-
-# Logs
 *.log
-npm-debug.log*
 
-# Backup folders (original uncompressed files)
-IMAGES_BACKUP/
-CLIPS_BACKUP/
-
+# Python
+__pycache__/
+*.pyc

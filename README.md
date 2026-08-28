@@ -1,103 +1,153 @@
 # The Traversal
 
-A film photography portfolio by Jacob Nadal, documenting landscapes and quiet moments through the deliberate eye of analog photography.
+A film photography portfolio by Jacob Nadal — landscapes and quiet moments,
+shot mostly on 35mm.
 
-🌐 **Live site**: [jnadal14.github.io/the-traversal](https://jnadal14.github.io/the-traversal)
+**Live:** [www.thetraversal.ca](https://www.thetraversal.ca)
 
-![The Traversal](IMAGES/01.jpg)
+![The Traversal](assets/photos/01.jpg)
 
-## About
+## The site
 
-The Traversal is an ongoing visual journey, an exploration of light, landscape, and the quiet moments that exist between destinations. Working primarily with 35mm film, each image is a meditation on presence and place. From the rugged peaks of the Pacific Northwest to the golden hours along coastal shores, the work captures the essence of traversing through both geography and time.
+Two pages, no build step, no framework.
 
-## Features
+- **`index.html`** — the landing sequence. Full-bleed photographs and silent
+  loops in an infinite scroll; one gesture moves one slide. Click anywhere to
+  enter.
+- **`mosaic.html`** — the gallery. A masonry of everything, with a lightbox for
+  photographs and fullscreen playback for films.
+- **`gallery-manifest.js`** — the running order of the mosaic. This is the only
+  file you edit to add, remove or reorder work.
 
-- **Masonry Gallery**: Responsive 3-column layout that adapts to all screen sizes
-- **Video Integration**: 9 looping video clips interspersed throughout the gallery
-- **Lightbox Viewer**: Click any image to view in full resolution
-- **Fullscreen Video**: Click videos to enter fullscreen with audio
-- **Minimal Design**: Clean, distraction-free presentation focused on the work
+Plain HTML, CSS and JavaScript. Cormorant Garamond and Darker Grotesque from
+Google Fonts. Deployed from `main` to GitHub Pages.
 
-## Tech Stack
-
-- Pure HTML, CSS, and vanilla JavaScript
-- No frameworks or build tools required
-- Google Fonts (Cormorant Garamond, Darker Grotesque)
-- CSS Columns for masonry layout
-- Fully responsive design
-
-## Project Structure
+## Layout
 
 ```
-the-traversal/
-├── index.html          # Landing page (infinite-scroll intro; click to enter)
-├── mosaic.html         # Main website / mosaic (single-page app)
-├── gallery-manifest.js # Overview gallery order (images + videos) — edit to add/reorder
-├── README.md           # This file
-├── LICENSE             # MIT License
-├── CLIPS/              # Gallery videos (order-prefixed) + WORK subfolder
-│   ├── 01_AWAGA_1.mp4 … 09_SAS_2.mp4   # 1920x1080 web encodes
-│   ├── mobile/         # 1080x1920 portrait crops of the landing clips
-│   └── WORK/           # Work panel videos
-├── CLIPS_BACKUP/       # 4K masters (git-ignored) — the encode script's input
-└── IMAGES/             # Photography (numbered gallery files + new/ + WORK/)
-    ├── new/            # Drop new photos here, then list paths in gallery-manifest.js
-    ├── video-posters/  # <clip>.jpg (landscape) and <clip>-m.jpg (portrait)
-    └── WORK/           # Work panel images
+├── index.html              landing sequence
+├── mosaic.html             gallery
+├── gallery-manifest.js     gallery running order — edit this
+├── assets/                 everything the site serves
+│   ├── photos/             web-sized photographs (long edge 2200px)
+│   ├── video/              web-sized loops (long edge 1920px)
+│   │   └── mobile/         portrait crops, landing page only
+│   ├── posters/            first frame of each loop
+│   └── site/               favicon, about portrait
+├── scripts/
+│   ├── optimize-photos.py  _masters/photos → assets/photos
+│   ├── encode-video.sh     _masters/video  → assets/video + posters
+│   └── curate-order.py     re-sequences the mosaic for visual variety
+└── _masters/               originals — git-ignored, never published
 ```
 
-### Re-encoding video
+`assets/` holds only web copies, and every one of them is generated from
+`_masters/` by the two scripts. Originals never enter the repository, which is
+what keeps the published site small enough for Pages to build quickly.
 
-`CLIPS/` holds web encodes, never masters. Regenerate them from the 4K files in
-`CLIPS_BACKUP/` with:
+## Adding work
+
+1. Drop the originals into `_masters/photos/` or `_masters/video/`. Any size,
+   any orientation — they are never published.
+
+2. Run whichever applies:
+
+   ```bash
+   python3 scripts/optimize-photos.py    # photographs
+   ./scripts/encode-video.sh             # films
+   ```
+
+   Both skip anything already built; pass `--force` to redo. Photographs come out
+   at 2200px on the long edge as progressive JPEG. Films come out at 1920px on
+   the long edge with a keyframe every second, and a poster taken from their own
+   first frame. Orientation is preserved, so a vertical clip stays vertical.
+
+3. Add a line to `gallery-manifest.js` where you want it to appear:
+
+   ```js
+   image('assets/photos/portra-041.jpg', 2200, 1470),
+   video('assets/video/garibaldi.mp4', 1080, 1920),
+   ```
+
+   The two numbers are the file's real pixel dimensions. They hold the tile's
+   shape before the media loads so the masonry doesn't jump while someone is
+   reading it. Check them with:
+
+   ```bash
+   sips -g pixelWidth -g pixelHeight assets/photos/portra-041.jpg
+   ```
+
+4. Bump `ASSET_VERSION` at the top of `gallery-manifest.js` so browsers refetch.
+
+5. Optionally re-sequence the gallery:
+
+   ```bash
+   python3 scripts/curate-order.py           # propose an order
+   python3 scripts/curate-order.py --write   # apply it
+   ```
+
+## Why the running order is generated
+
+The mosaic is CSS `column-count`, which fills **column-major**. With 70 tiles
+over three columns the browser puts items 0–21 in the first column, 22–45 in the
+second and 46–69 in the third. So the tile beside item 0 is item ~22, not item 1
+— and the first screenful is the top of every column at once. Sequencing by hand
+cannot control that, and the split points move at every breakpoint.
+
+`curate-order.py` measures each photograph (mean CIELAB colour, tone, saturation,
+hue, aspect), reproduces that balanced fill at 2, 3 and 4 columns, derives the
+real neighbour pairs from the resulting geometry, and anneals the order so that
+no two similar tiles touch at any width, films stay evenly spread, and the tops
+of the columns — the whole first impression — contrast strongly with each other.
+
+Edit the order by hand whenever you like; the script is a starting point, not a
+gate.
+
+Photographs are named after the film stock they were shot on
+(`portra-008.jpg`, `gold-021.jpg`, `cinestill400d-030.jpg`); the earlier
+numbered scans keep their original names.
+
+## The landing sequence
+
+Its slides live in the `LANDING_SLIDES` array near the top of `index.html`'s
+script. Films are named by slug and resolved at runtime to the right encode:
+
+```js
+{ type: 'video', clip: 'icefields-1', title: 'Icefields Parkway', sub: 'Banff National Park' },
+{ type: 'image', src: 'assets/photos/01.jpg', title: 'Takakkaw Falls', sub: 'Yoho National Park' },
+```
+
+A `clip` needs four files, all produced by `encode-video.sh`:
+`assets/video/<slug>.mp4`, `assets/video/mobile/<slug>.mp4`, and posters
+`assets/posters/<slug>.jpg` and `<slug>-m.jpg`. Phones get the portrait crop —
+`object-fit: cover` otherwise reduces a 16:9 frame to a narrow strip and upscales
+it, which costs more visible quality than the codec does. To add a new landing
+film, add its slug to `MOBILE_CROPS` in the script so the portrait crop is built.
+
+## Running it locally
 
 ```bash
-./scripts/encode-web-video.sh
+python3 -m http.server 8000
 ```
 
-That writes the 1080p landscape encodes, the portrait crops used on phones, and
-a poster for each pulled from frame 0 of the encode itself. The script explains
-the bitrate choices inline. After re-encoding, bump the `ASSET_V` constant in
-`index.html` and the `?v=` in `gallery-manifest.js` so browsers refetch.
+Then open <http://localhost:8000>. There is nothing to install or compile.
 
-Landing clips are declared by name — `{ type: 'video', clip: '05_Icefileds_1' }` —
-and the page resolves the landscape or portrait variant at runtime, so a new clip
-only needs its two encodes plus the two posters.
-
-### Adding photos to the gallery
-
-Put new files in `IMAGES/new/` with **URL-safe names** (e.g. `my-shot.jpg`, no spaces). Edit **`gallery-manifest.js`** and add a line where you want the image:
-
-`image('IMAGES/new/my-shot.jpg', 2200, 1458),`
-
-The last two numbers are the image's pixel width and height. They reserve the correct amount of space before the file loads, keeping the gallery stable while scrolling. On macOS, check them with:
-
-`sips -g pixelWidth -g pixelHeight IMAGES/new/my-shot.jpg`
-
-After adding large JPEGs, run **`./scripts/optimize-gallery-images.sh`** so pages load in a few seconds on real networks.
-
-Reorder by moving lines. Videos use `video('CLIPS/...')` and default to a 16:9 tile.
-
-## Local Development
-
-No build process required. Simply open `index.html` in a browser or run a local server:
+## Requirements for the scripts
 
 ```bash
-# Python 3
-python -m http.server 8000
-
-# Then visit http://localhost:8000
+brew install ffmpeg
+python3 -m pip install Pillow
 ```
 
 ## Contact
 
-- **Email**: jacob24@rogers.com
-- **Location**: Vancouver, British Columbia
+Jacob Nadal — jacob24@rogers.com — Vancouver, British Columbia
+[@thetraversal](https://www.instagram.com/thetraversal/)
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-*© 2025 Jacob Nadal*
+*© 2026 Jacob Nadal*
