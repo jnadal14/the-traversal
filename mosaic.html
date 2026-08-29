@@ -132,7 +132,9 @@
             margin-bottom: var(--gap);
             break-inside: avoid;
             display: block;
-            background: #eee;
+            /* Overridden per tile with that photograph's own mean colour. The
+               flat grey it replaced was what read as "white popping in". */
+            background: #d8d5d0;
             contain: paint;
         }
 
@@ -140,7 +142,17 @@
             width: 100%;
             height: auto;
             display: block;
-            transition: transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            /* Fades up over its own tint, so arriving late reads as the picture
+               developing rather than a hole being filled. */
+            opacity: 0;
+            transition: opacity 0.55s ease,
+                        transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .gallery-item img.is-loaded { opacity: 1; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .gallery-item img { transition: none; }
         }
 
         .gallery-video { break-inside: avoid; cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -599,6 +611,9 @@
                     if (entry.width && entry.height) {
                         wrap.style.aspectRatio = `${entry.width} / ${entry.height}`;
                     }
+                    // The photograph's own mean colour, so an unloaded tile is a
+                    // block of its colour rather than a white hole.
+                    if (entry.tint) wrap.style.backgroundColor = entry.tint;
                     const img = document.createElement('img');
                     img.alt = entry.alt || `The Traversal photograph ${String(imageOrdinal).padStart(2, '0')}`;
                     img.tabIndex = 0;
@@ -608,15 +623,19 @@
                         img.width = entry.width;
                         img.height = entry.height;
                     }
-                    img.loading = 'lazy';
                     img.decoding = 'async';
-                    img.src = entry.src;
+                    // Held back for the preloader below rather than handed to
+                    // native lazy-loading, whose margin is far too tight on iOS
+                    // Safari — tiles were still arriving as they crossed the fold.
+                    img.dataset.src = entry.src;
+                    img.addEventListener('load', () => img.classList.add('is-loaded'), { once: true });
                     wrap.appendChild(img);
                     frag.appendChild(wrap);
                 } else if (entry.type === 'video' && entry.src) {
                     videoOrdinal += 1;
                     const wrap = document.createElement('div');
                     wrap.className = 'gallery-item gallery-video';
+                    if (entry.tint) wrap.style.backgroundColor = entry.tint;
                     const width = entry.width || 16;
                     const height = entry.height || 9;
                     wrap.style.aspectRatio = `${width} / ${height}`;
@@ -639,6 +658,83 @@
                 }
             });
             grid.appendChild(frag);
+        })();
+
+        // ---------- Photograph preloading ----------
+        //
+        // Native loading="lazy" was fetching tiles barely before they crossed the
+        // fold, so on iOS Safari a slow scroll outran it and pictures visibly
+        // popped in. This walks well ahead of the reader instead: everything on
+        // the first screen loads immediately, and an observer with a very deep
+        // margin pulls in roughly three screens of runway below wherever they are.
+        //
+        // The tint underneath each tile is the safety net — no preloading
+        // strategy can promise arrival on a bad connection, so the guarantee that
+        // nothing ever shows as white lives in the placeholder, not here.
+        (function preloadPhotographs() {
+            const overview = document.getElementById('overview');
+            const pending = Array.from(document.querySelectorAll('#gallery-grid img[data-src]'));
+            if (!pending.length) return;
+
+            const start = (img) => {
+                if (!img.dataset.src) return;
+                img.src = img.dataset.src;
+                delete img.dataset.src;
+                // An image already in the cache never fires load.
+                if (img.complete && img.naturalWidth > 0) img.classList.add('is-loaded');
+            };
+
+            // Someone on a metered or slow connection is better served by a
+            // narrow window and the tint than by 36 MB of photographs arriving at
+            // once — which is what the whole gallery weighs, and what an
+            // unconditional prefetch was pulling before the visitor had scrolled
+            // a single pixel. That competes with the first screen it is meant to
+            // make faster.
+            const conn = navigator.connection || {};
+            const frugal = conn.saveData === true
+                || /2g/.test(conn.effectiveType || '');
+
+            // First screenful, before any observer has had a chance to run.
+            pending.slice(0, 8).forEach(start);
+
+            if (!('IntersectionObserver' in window)) {
+                pending.forEach(start);
+                return;
+            }
+            const ahead = new IntersectionObserver((entries, obs) => {
+                entries.forEach((e) => {
+                    if (!e.isIntersecting) return;
+                    start(e.target);
+                    obs.unobserve(e.target);
+                });
+            }, {
+                root: overview,
+                // Two screens of runway below the reader. Enough that a slow
+                // scroll never catches up with the loader, without being so deep
+                // that it swallows the whole gallery on the first frame.
+                rootMargin: frugal ? '60% 0px' : '200% 0px',
+                threshold: 0,
+            });
+            pending.forEach((img) => { if (img.dataset.src) ahead.observe(img); });
+
+            // Once someone has committed to browsing, stop rationing and fetch
+            // the rest at idle priority, so the far end of the gallery is already
+            // there when they reach it.
+            if (frugal) return;
+            let woken = false;
+            const wake = () => {
+                if (woken) return;
+                woken = true;
+                overview.removeEventListener('scroll', onScroll);
+                const rest = () => pending.forEach(start);
+                if ('requestIdleCallback' in window) requestIdleCallback(rest, { timeout: 3000 });
+                else setTimeout(rest, 1200);
+            };
+            // A real scroll, not the stray scroll event a page can emit while it
+            // is still settling — that was firing wake() immediately, and idle
+            // arrived long before the visitor did.
+            const onScroll = () => { if (overview.scrollTop > 600) wake(); };
+            overview.addEventListener('scroll', onScroll, { passive: true });
         })();
 
         // Short calm entry: hold the dark veil until first images are ready,
@@ -686,9 +782,15 @@
                 };
 
                 criticalImages.forEach(img => {
-                    img.loading = 'eager';
                     img.fetchPriority = 'high';
-                    if (img.complete && img.naturalWidth > 0) onOne();
+                    // Photographs now start with their source held in data-src.
+                    // Without this a tile the preloader had not reached yet would
+                    // never fire load, and the veil would sit out its full timeout.
+                    if (img.dataset.src) {
+                        img.src = img.dataset.src;
+                        delete img.dataset.src;
+                    }
+                    if (img.complete && img.naturalWidth > 0) { img.classList.add('is-loaded'); onOne(); }
                     else {
                         img.addEventListener('load', onOne, { once: true });
                         img.addEventListener('error', onOne, { once: true });

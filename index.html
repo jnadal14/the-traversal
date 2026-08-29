@@ -71,8 +71,18 @@
         .slide {
             position: relative;
             width: 100%;
-            /* Keep the slide box stable while iOS Safari shows/hides its bars. */
+            /* dvh, not vh. On iOS Safari `vh` resolves against the LARGE viewport
+               — the height with the address bar retracted — so while the bar is
+               on screen the slide's bottom edge sits ~90px below what you can
+               actually see. The caption is anchored to that bottom edge and the
+               scroll hint is fixed to the visual viewport, so the two disagreed
+               by exactly the height of the browser chrome and the hint landed on
+               top of the title. dvh tracks the visible area, so they agree at
+               every point in the bar's show/hide cycle. Chrome and Firefox on
+               Android collapse their chrome the same way.
+               vh first as the fallback for anything without dvh. */
             height: 100vh;
+            height: 100dvh;
             overflow: hidden;
             overflow: clip;
             contain: paint;
@@ -733,9 +743,35 @@
             if (next > 200) SLIDE_H = next;
         }
         measureSlideHeight();
-        window.addEventListener('resize', () => {
-            measureSlideHeight();
-        }, { passive: true });
+        // Re-measure whenever the viewport changes size, and re-seat onto the
+        // slide the visitor was already on.
+        //
+        // With dvh slides, iOS retracting or restoring its address bar changes
+        // every slide's height at once — the document grows or shrinks by ~8% and
+        // the current scroll offset stops lining up with any slide, which is what
+        // made the bottom of the page look broken after scrolling back up. It
+        // fires visualViewport.resize and often NOT window.resize, so listening
+        // only for the latter missed the very event that caused the problem.
+        let viewportSettle = 0;
+        function onViewportChange() {
+            clearTimeout(viewportSettle);
+            // Capture the slide first: measuring changes what "current" means.
+            const wasOn = Math.round(currentScroll() / SLIDE_H);
+            viewportSettle = setTimeout(() => {
+                if (touchActive || isSnapping) return;   // never yank mid-gesture
+                measureSlideHeight();
+                const y = realSnapIndex(wasOn) * SLIDE_H;
+                if (Math.abs(window.scrollY - y) > 1) scrollImmediately(y);
+                lastScroll = y;
+                resetParallax();
+                syncLandingVideos();
+                updateActiveSlide(true);
+            }, 120);
+        }
+        window.addEventListener('resize', onViewportChange, { passive: true });
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', onViewportChange, { passive: true });
+        }
 
         // ---------- Enter navigation ----------
         let navigating = false;
