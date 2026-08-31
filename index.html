@@ -12,9 +12,17 @@
          frame 0 of its own encode, which makes the poster->video swap invisible. -->
     <link rel="preload" href="assets/posters/icefields-1.jpg?v=20260827" as="image" fetchpriority="high" media="(min-width: 769px)">
     <link rel="preload" href="assets/posters/icefields-1-m.jpg?v=20260827" as="image" fetchpriority="high" media="(max-width: 768px)">
-    <link rel="preload" href="assets/video/icefields-1.mp4?v=20260827" as="video" type="video/mp4" media="(min-width: 769px)">
-    <link rel="preload" href="assets/video/mobile/icefields-1.mp4?v=20260827" as="video" type="video/mp4" media="(max-width: 768px)">
-    <link rel="prefetch" href="mosaic.html">
+    <!-- The two `as="video"` preloads that used to sit here did nothing. Measured
+         on the deployed site: the hero clip's Resource Timing initiator is
+         "video", not "link" — the preload never served the request, so the fetch
+         still only began once the script built the element. as="video" is not a
+         reliable preload target (Safari does not implement it at all), and a
+         preload the element never claims is pure competition for the connection.
+         The poster links above DO work — initiator "link" — and the poster is
+         what covers the slide until a frame is drawable, so that is the one that
+         actually shortens the wait.
+         mosaic.html's prefetch also moved: it was starting BEFORE the hero clip.
+         It now runs from the load event, below, where an idle prefetch belongs. -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&amp;family=Darker+Grotesque:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
@@ -26,6 +34,14 @@
             --font-display: 'Cormorant Garamond', serif;
             --font-body: 'Darker Grotesque', sans-serif;
             --hint-clearance: 4.5rem;
+            /* How much of a slide's bottom edge the browser chrome is currently
+               covering: zero once the address bar has retracted, its height
+               while it is on screen. Slides are sized in lvh so the bar cannot
+               move them; this is what keeps the caption above the bar instead,
+               and it moves one small element rather than all 24 slides.
+               Falls back to 0 anywhere without dvh/lvh. */
+            --chrome-bottom: 0px;
+            --chrome-bottom: calc(100lvh - 100dvh);
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -71,18 +87,20 @@
         .slide {
             position: relative;
             width: 100%;
-            /* dvh, not vh. On iOS Safari `vh` resolves against the LARGE viewport
-               — the height with the address bar retracted — so while the bar is
-               on screen the slide's bottom edge sits ~90px below what you can
-               actually see. The caption is anchored to that bottom edge and the
-               scroll hint is fixed to the visual viewport, so the two disagreed
-               by exactly the height of the browser chrome and the hint landed on
-               top of the title. dvh tracks the visible area, so they agree at
-               every point in the bar's show/hide cycle. Chrome and Firefox on
-               Android collapse their chrome the same way.
-               vh first as the fallback for anything without dvh. */
+            /* lvh, NOT dvh. This was dvh, to keep the caption clear of the iOS
+               address bar — but dvh re-resolves as that bar retracts, and with
+               24 slides stacked that resized every one of them at once: the
+               document grew ~2000px, the slide under the reader moved by eight
+               times the chrome height, and every scroll-snap point relocated
+               mid-gesture. WebKit has no scroll anchoring to absorb it, so the
+               first swipe of every visit lurched by most of a slide.
+               lvh is the LARGE viewport — a fixed number that the address bar
+               cannot move — so the geometry is now static and snap points stay
+               put. The chrome clearance dvh was really being used for is handled
+               on its own below, by --chrome-bottom, which moves only the caption.
+               vh first as the fallback; on iOS Safari vh already means lvh. */
             height: 100vh;
-            height: 100dvh;
+            height: 100lvh;
             overflow: hidden;
             overflow: clip;
             contain: paint;
@@ -155,7 +173,7 @@
             position: absolute;
             left: clamp(1.25rem, 5vw, 4rem);
             right: clamp(1.25rem, 5vw, 4rem);
-            bottom: calc(var(--hint-clearance) + env(safe-area-inset-bottom, 0px));
+            bottom: calc(var(--hint-clearance) + env(safe-area-inset-bottom, 0px) + var(--chrome-bottom));
             z-index: 2;
             display: flex;
             align-items: baseline;
@@ -175,6 +193,16 @@
         .slide.is-active .slide-caption {
             opacity: 1;
             transform: translateY(0);
+        }
+
+        /* A loop remap swaps the page onto the identical slide one run away.
+           Not a pixel on screen changes — but is-active moves to a different
+           element, which restarted the caption's entrance on a photograph that
+           visibly did not change. That flicker was the most legible tell that
+           the infinite scroll was a trick. Suppressed for the one frame the
+           remap takes, then transitions come straight back. */
+        html.caption-instant .slide-caption {
+            transition: none;
         }
 
         /* The portrait encodes are already cropped to the framing these rules
@@ -358,6 +386,14 @@
             opacity: 1;
             visibility: visible;
             pointer-events: auto;
+            /* The veil is opaque but it used to let the page scroll underneath
+               it: a visitor who swipes at the loading screen — which is what
+               people do — moved one or two slides blind, and then the veil
+               lifted somewhere they did not choose. touch-action: none makes
+               the overlay swallow gestures that start on it, without touching
+               the document's own overflow (setting overflow:hidden on a
+               scrolled document clamps scrollY on iOS and would undo the seat). */
+            touch-action: none;
         }
         /* First paint: solid cover, no fade-in flash. Fade only on leave. */
         body.is-arriving .enter-veil.active {
@@ -436,7 +472,7 @@
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 0.35rem;
-                bottom: calc(var(--hint-clearance) + env(safe-area-inset-bottom, 0px));
+                bottom: calc(var(--hint-clearance) + env(safe-area-inset-bottom, 0px) + var(--chrome-bottom));
             }
 
             .slide-index { padding-top: 0; font-size: 0.8rem; }
@@ -489,7 +525,7 @@
             .slide-rail { display: none; }
 
             .slide-caption {
-                bottom: calc(var(--hint-clearance) + env(safe-area-inset-bottom, 0px));
+                bottom: calc(var(--hint-clearance) + env(safe-area-inset-bottom, 0px) + var(--chrome-bottom));
             }
 
             .slide-title { font-size: clamp(1.25rem, 4vh, 1.85rem); }
@@ -570,7 +606,16 @@
         // Dirty Aesthetic's smooth touch behavior comes from leaving iOS on
         // native scrolling (Lenis syncTouch is disabled there). Do the same:
         // Safari keeps CSS scroll-snap, while desktop gets the section stepper.
-        const useNativeScroll = reduceMotion || isTouch || isMobileLayout;
+        //
+        // Recomputed, not latched. This was a const read once at parse time, and
+        // matchMedia can report the pre-layout width — a page opened in a
+        // background tab measures zero and therefore "mobile". A desktop that
+        // guessed wrong here kept CSS mandatory snap and never attached the wheel
+        // stepper, and under mandatory snap a single wheel notch moves ~100px of a
+        // full-viewport slide, never crosses the halfway point and snaps straight
+        // back: the page simply refuses to scroll. applyScrollMode() below moves
+        // it to whichever path the current viewport actually calls for.
+        let useNativeScroll = reduceMotion || isTouch || isMobileLayout;
         // The loop is infinite everywhere. Touch used to build a single finite run
         // so Safari never had to remap scroll during momentum, but that made the
         // last slide a dead end on exactly the devices most people arrive on.
@@ -613,9 +658,10 @@
             const slide = document.createElement('section');
             slide.className = 'slide';
             const copyIndex = opts.copy ?? MIDDLE_COPY;
+            const isMiddleCopy = copyIndex === MIDDLE_COPY;
             slide.dataset.copy = String(copyIndex);
             slide.dataset.slideIndex = String(displayIndex);
-            if (copyIndex !== MIDDLE_COPY) slide.setAttribute('aria-hidden', 'true');
+            if (!isMiddleCopy) slide.setAttribute('aria-hidden', 'true');
 
             const media = document.createElement('div');
             media.className = 'slide-media';
@@ -674,6 +720,7 @@
                     poster.loading = opts.priority ? 'eager' : 'lazy';
                     poster.decoding = 'async';
                     if (opts.priority) poster.fetchPriority = 'high';
+                    else if (!isMiddleCopy) poster.fetchPriority = 'low';
                     media.appendChild(poster);
                 }
             } else {
@@ -686,6 +733,13 @@
                 // scrolls to, and it is the heaviest photograph on the page, so it
                 // needs the same priority as the hero rather than eager-but-idle.
                 if (opts.priority || opts.nearby) img.fetchPriority = 'high';
+                // The outer two runs are duplicates of the middle one. Nobody can
+                // reach them without first scrolling a long way, but they are in
+                // the DOM from the start, and on a phone the browser was pulling
+                // ~2MB of them — photographs positioned BEHIND the visitor —
+                // while the opening clip was still arriving. They stay lazy; this
+                // just stops them bidding against the hero for the connection.
+                else if (!isMiddleCopy) img.fetchPriority = 'low';
                 media.appendChild(img);
             }
 
@@ -743,30 +797,56 @@
             if (next > 200) SLIDE_H = next;
         }
         measureSlideHeight();
-        // Re-measure whenever the viewport changes size, and re-seat onto the
-        // slide the visitor was already on.
+        // Re-measure whenever the viewport genuinely changes size, and re-seat
+        // onto the slide the visitor was already on.
         //
-        // With dvh slides, iOS retracting or restoring its address bar changes
-        // every slide's height at once — the document grows or shrinks by ~8% and
-        // the current scroll offset stops lining up with any slide, which is what
-        // made the bottom of the page look broken after scrolling back up. It
-        // fires visualViewport.resize and often NOT window.resize, so listening
-        // only for the latter missed the very event that caused the problem.
+        // Slides are sized in lvh now, so the iOS address bar retracting no
+        // longer resizes anything and the common case here is a no-op — this
+        // exists for real size changes: rotation, split view, a desktop window
+        // being dragged. Three things had to change:
+        //
+        //  1. It bailed out entirely when the timer landed during a touch, and
+        //     nothing re-armed it — the re-measure was discarded, not deferred,
+        //     so SLIDE_H could stay wrong for the rest of the session. It now
+        //     reschedules itself instead.
+        //  2. touchActive is false throughout the momentum tail, and isSnapping
+        //     is never set on the touch path at all, so neither flag kept this
+        //     off a live fling. It now also waits for the scroll to be still.
+        //  3. It re-seated even when the height had not actually changed, which
+        //     turned a stray resize into a visible jump for no reason.
         let viewportSettle = 0;
         function onViewportChange() {
             clearTimeout(viewportSettle);
             // Capture the slide first: measuring changes what "current" means.
             const wasOn = Math.round(currentScroll() / SLIDE_H);
-            viewportSettle = setTimeout(() => {
-                if (touchActive || isSnapping) return;   // never yank mid-gesture
+            const settle = () => {
+                // Defer, never discard: a dropped re-measure leaves SLIDE_H
+                // stale and every index derived from it wrong.
+                if (touchActive || isSnapping || !scrollIsStill()) {
+                    viewportSettle = setTimeout(settle, 120);
+                    return;
+                }
+                const before = SLIDE_H;
+                const wasReal = slideHeightIsReal();
                 measureSlideHeight();
-                const y = realSnapIndex(wasOn) * SLIDE_H;
-                if (Math.abs(window.scrollY - y) > 1) scrollImmediately(y);
-                lastScroll = y;
+                if (SLIDE_H === before) return;   // nothing moved; don't yank
+                if (!wasReal) {
+                    // First real layout after parsing against a zero-size
+                    // viewport. wasOn was derived from the placeholder height and
+                    // means nothing, and the loop is still unarmed — start clean
+                    // on the opening slide instead of trusting a bogus index.
+                    armLoop();
+                    seatAtFirstReal();
+                } else {
+                    const y = realSnapIndex(wasOn) * SLIDE_H;
+                    if (Math.abs(window.scrollY - y) > 1) scrollImmediately(y);
+                    lastScroll = y;
+                }
                 resetParallax();
                 syncLandingVideos();
                 updateActiveSlide(true);
-            }, 120);
+            };
+            viewportSettle = setTimeout(settle, 120);
         }
         window.addEventListener('resize', onViewportChange, { passive: true });
         if (window.visualViewport) {
@@ -842,17 +922,47 @@
             return i * slideHeight();
         }
 
-        function seatAtFirstReal() {
+        // Set the moment the visitor moves the page themselves. Every seat below
+        // is a hard scrollTo back to slide one, and on a slow first load the last
+        // of them can land hundreds of milliseconds after someone has already
+        // started swiping — which silently ate their first gesture. Arrival may
+        // seat the page; it may not overrule the visitor.
+        let visitorHasScrolled = false;
+        function markVisitorScroll() { visitorHasScrolled = true; }
+        window.addEventListener('touchstart', markVisitorScroll, { passive: true, once: true });
+        window.addEventListener('wheel', markVisitorScroll, { passive: true, once: true });
+        window.addEventListener('keydown', markVisitorScroll, { passive: true, once: true });
+
+        // SLIDE_H starts at 1 and measureSlideHeight() refuses to latch anything
+        // under 200px, so until a real layout has happened it is still 1 — and
+        // seating against it would scroll to 8px and call that "slide eight".
+        // A viewport of zero is not hypothetical: a page opened in a background
+        // tab, or restored from the app switcher, parses before layout.
+        function slideHeightIsReal() {
+            return SLIDE_H > 200;
+        }
+
+        function seatAtFirstReal(force) {
+            // The synchronous seat at parse time passes force: nothing can have
+            // happened yet, and the page must start on the first real slide.
+            if (!force && visitorHasScrolled) return;
+            if (!slideHeightIsReal()) return;
             const y = scrollForIndex(IDX_FIRST_REAL);
+            if (Math.abs(window.scrollY - y) < 1) return;
             window.scrollTo(0, y);
             lastScroll = y;
         }
 
-        seatAtFirstReal();
+        seatAtFirstReal(true);
 
         function armLoop() {
             if (loopReady) return;
             measureSlideHeight();
+            // Arming the loop against a bogus height bakes in a bogus geometry:
+            // every index, every remap target and every video decision derives
+            // from SLIDE_H. Wait for a real one — onViewportChange() re-measures
+            // on the first true layout, and calls back here.
+            if (!slideHeightIsReal()) return;
             seatAtFirstReal();
             loopReady = true;
         }
@@ -866,6 +976,8 @@
         // low-power phone, would come to the foreground with the infinite loop
         // permanently disarmed and the last slide a dead end. Arm it on a timer as
         // well; armLoop() is idempotent, so whichever path runs first wins.
+        // It must still arm the loop in that case — it just may not re-seat over
+        // a visitor who got there first, which seatAtFirstReal() now enforces.
         setTimeout(armLoop, 400);
 
         document.documentElement.style.touchAction = 'pan-y';
@@ -895,6 +1007,27 @@
             return window.scrollY;
         }
 
+        // iOS momentum runs on the scrolling thread and keeps moving the page for
+        // up to a second and a half after the finger leaves. touchActive is false
+        // for all of it, so any guard built only on touchActive fires at exactly
+        // the moment a hard scrollTo does the most damage. Watching the position
+        // itself is the only reliable way to know the page has actually stopped.
+        let lastMovedAt = 0;
+        let lastSeenScroll = -1;
+        const SCROLL_STILL_MS = 140;
+        window.addEventListener('scroll', () => {
+            const y = window.scrollY;
+            if (y !== lastSeenScroll) {
+                lastSeenScroll = y;
+                lastMovedAt = performance.now();
+            }
+        }, { passive: true });
+        function scrollIsStill() {
+            // Never seen a scroll event: nothing has moved, so it is still.
+            if (!lastMovedAt) return true;
+            return (performance.now() - lastMovedAt) >= SCROLL_STILL_MS;
+        }
+
         function scrollImmediately(y) {
             if (tweenFrame) { cancelAnimationFrame(tweenFrame); tweenFrame = 0; }
             window.scrollTo({ top: y, left: 0, behavior: 'auto' });
@@ -912,17 +1045,41 @@
             if (!source.paused) playLandingVideo(target);
         }
 
+        // A remap lands on the identical slide one run away, so nothing on screen
+        // changes — but is-active moves to a different element, which replayed the
+        // caption's entrance animation. Re-point it with transitions off for the
+        // one frame the remap takes.
+        let captionInstantFrame = 0;
+        function remapCaption() {
+            document.documentElement.classList.add('caption-instant');
+            updateActiveSlide(true);
+            cancelAnimationFrame(captionInstantFrame);
+            captionInstantFrame = requestAnimationFrame(() => {
+                captionInstantFrame = requestAnimationFrame(() => {
+                    document.documentElement.classList.remove('caption-instant');
+                });
+            });
+        }
+
         function normalizeLoop() {
             if (!useInfiniteLoop || !loopReady || wrapping || isSnapping || touchActive) return;
+            // Never remap while the page is still coasting. scrollTo into a live
+            // iOS fling is either ignored or applied with the remaining momentum
+            // continuing from the new offset — both read as a jump.
+            if (!scrollIsStill()) return;
             const h = slideHeight();
             if (h < 80) return;
             const y = currentScroll();
             const runHeight = SLIDE_COUNT * h;
-            // Stay in the identical outer run for a few slides before remapping.
-            // This keeps the jump away from the opening-video/Kokanee boundary,
-            // where iOS momentum and video painting can otherwise fight snapping.
-            const upperRecenterPoint = (SLIDE_COUNT - 2.5) * h;
-            const lowerRecenterPoint = (SLIDE_COUNT * 2 + 2.5) * h;
+            // These used to sit 2.5 slides outside the middle run, which is
+            // symmetric about the run but NOT about where the visitor starts:
+            // the page seats at the run's first slide, so there were 10.5 slides
+            // of runway going down and only 2.5 going up. Three backward swipes
+            // from the landing and you tripped a whole-run teleport. Pushed out
+            // so both directions get a comfortable margin, and both remaps land
+            // near the middle of the document rather than close to an edge.
+            const upperRecenterPoint = 2.5 * h;
+            const lowerRecenterPoint = (SLIDE_COUNT * 2 + 5.5) * h;
 
             // Entering the first run: move to the same pixels one run lower.
             if (y < upperRecenterPoint) {
@@ -933,6 +1090,7 @@
                 lastScroll = next;
                 wrapping = false;
                 resetParallax();
+                remapCaption();
                 return;
             }
             // Entering the third run: move to the same pixels one run higher.
@@ -944,14 +1102,30 @@
                 lastScroll = next;
                 wrapping = false;
                 resetParallax();
+                remapCaption();
             }
         }
 
-        function scheduleNativeRecenter(delay = 180) {
+        // The remap this schedules teleports the page by a whole run — eight
+        // viewports. Landing that inside a live fling is the single most visible
+        // fault on the page, and the old 180ms deadline did exactly that: it was
+        // re-armed by the scroll listener, but any main-thread stall longer than
+        // 180ms (decoding a photograph, starting a clip) let it through while
+        // momentum was still running, and touchActive is false for that whole
+        // tail. So: only ever remap when the scroll position has actually stopped
+        // moving, and re-arm rather than give up when it has not.
+        const HAS_SCROLLEND = 'onscrollend' in window;
+        function scheduleNativeRecenter(delay) {
             if (!useNativeScroll || !useInfiniteLoop) return;
+            // Where scrollend exists it is authoritative and fires below; this
+            // timer is only a backstop for older iOS, so it can afford to be slow.
+            if (delay === undefined) delay = HAS_SCROLLEND ? 700 : 260;
             clearTimeout(nativeRecenterTimer);
-            nativeRecenterTimer = setTimeout(() => {
-                if (touchActive) return;
+            nativeRecenterTimer = setTimeout(function retry() {
+                if (touchActive || !scrollIsStill()) {
+                    nativeRecenterTimer = setTimeout(retry, 120);
+                    return;
+                }
                 normalizeLoop();
                 syncLandingVideos();
             }, delay);
@@ -1046,6 +1220,10 @@
         }
 
         function raf() {
+            // The mode can flip under us (a window narrowed past the breakpoint,
+            // a phone rotated). Stand down rather than keep a frame loop running
+            // against a path that is now driven by events.
+            if (useNativeScroll) { stepperLoopRunning = false; return; }
             normalizeLoop();
             updateParallax();
             updateActiveSlide();
@@ -1057,32 +1235,61 @@
         }
         // The stepper path runs its own frame loop; the touch path stays entirely
         // event-driven so Safari keeps scrolling on the compositor.
-        if (!useNativeScroll) {
+        //
+        // The event-driven half is attached unconditionally. Everything it calls
+        // is idempotent and derives its answer from the scroll position, so on the
+        // stepper path it simply agrees with the frame loop — and attaching it
+        // once, up front, is what lets the mode change later without having to
+        // wire up listeners on a page that is already running.
+        let nativeScrollFrame = 0;
+        window.addEventListener('scroll', () => {
+            if (nativeScrollFrame) return;
+            nativeScrollFrame = requestAnimationFrame(() => {
+                nativeScrollFrame = 0;
+                syncLandingVideos();
+                updateActiveSlide();
+                scheduleNativeRecenter();
+            });
+        }, { passive: true });
+
+        if ('onscrollend' in window) {
+            window.addEventListener('scrollend', () => {
+                clearTimeout(nativeRecenterTimer);
+                if (!touchActive && scrollIsStill()) normalizeLoop();
+                syncLandingVideos();
+                updateActiveSlide();
+            }, { passive: true });
+        }
+        updateActiveSlide();
+
+        let stepperLoopRunning = false;
+        function startStepperLoop() {
+            if (stepperLoopRunning || useNativeScroll) return;
+            stepperLoopRunning = true;
             requestAnimationFrame(raf);
             updateParallax();
             updateActiveSlide();
-        } else {
-            let nativeScrollFrame = 0;
-            window.addEventListener('scroll', () => {
-                if (nativeScrollFrame) return;
-                nativeScrollFrame = requestAnimationFrame(() => {
-                    nativeScrollFrame = 0;
-                    syncLandingVideos();
-                    updateActiveSlide();
-                    scheduleNativeRecenter();
-                });
-            }, { passive: true });
-
-            if ('onscrollend' in window) {
-                window.addEventListener('scrollend', () => {
-                    clearTimeout(nativeRecenterTimer);
-                    if (!touchActive) normalizeLoop();
-                    syncLandingVideos();
-                    updateActiveSlide();
-                }, { passive: true });
-            }
-            updateActiveSlide();
         }
+
+        // Put the page on the path the CURRENT viewport calls for. Safe to call
+        // repeatedly; it only acts on an actual change.
+        function applyScrollMode() {
+            const next = reduceMotion || isTouch || isMobileLayout;
+            if (next === useNativeScroll) return;
+            useNativeScroll = next;
+            document.documentElement.classList.toggle('native-snap', useNativeScroll);
+            if (useNativeScroll) {
+                // Leaving the stepper: raf() stops itself on the next frame, and
+                // the parallax offsets it wrote must be cleared or every slide
+                // keeps a stale transform.
+                resetParallax();
+            } else {
+                startStepperLoop();
+            }
+            updateActiveSlide(true);
+        }
+
+        startStepperLoop();
 
         // ---------- Direct navigation ----------
         // Scrolling eight viewports to reach a photograph you can already see on
@@ -1257,7 +1464,11 @@
         //
         // Gated on the layout, not on whether a scroll library happened to load.
         // Touch keeps CSS scroll-snap; a pointer device gets the stepper.
-        if (!useNativeScroll) {
+        //
+        // Attached unconditionally, gated live inside handleWheel. It used to be
+        // wrapped in `if (!useNativeScroll)`, which meant a viewport misreported
+        // at parse never got a wheel listener at all and could never recover.
+        {
             const WHEEL_THRESHOLD = 40;     // accumulated delta before advancing
             const GESTURE_GAP = 90;         // ms of quiet that marks a new gesture
             const CONTINUOUS_ADVANCE = 950; // ms; unbroken input still steps this often
@@ -1286,6 +1497,8 @@
             }
 
             function handleWheel(event) {
+                // Live check: on the touch/snap path the browser owns the wheel.
+                if (useNativeScroll) return;
                 if (navigating || reduceMotion || event.ctrlKey || !event.deltaY) return;
 
                 // Fail open, never closed. Every step is computed from SLIDE_H, so
@@ -1468,7 +1681,13 @@
                 entries.forEach(entry => {
                     if (entry.isIntersecting) attachLandingVideo(entry.target);
                 });
-            }, { root: null, rootMargin: '150% 0px', threshold: 0 });
+            // 150% reached a slide and a half in every direction, which from the
+            // seat pulled the 1.7MB Saskatchewan clip out of the hidden run ABOVE
+            // the visitor while the opening clip was still downloading. 75% still
+            // attaches the next clip well before it can be scrolled to — a slide
+            // is one viewport, so this is most of a slide's warning — without
+            // reaching back past the one behind.
+            }, { root: null, rootMargin: '75% 0px', threshold: 0 });
             const landingPlaybackObserver = new IntersectionObserver(syncLandingVideos, {
                 root: null,
                 threshold: [0, 0.12],
@@ -1529,7 +1748,10 @@
 
         const onLayoutBreakpointChange = (e) => {
             isMobileLayout = e.matches;
+            // Media first, then the scroll path. This used to swap only the media
+            // and leave the page on whichever path it happened to pick at parse.
             swapVideoVariants();
+            applyScrollMode();
         };
         if (mobileLayoutMQ.addEventListener) mobileLayoutMQ.addEventListener('change', onLayoutBreakpointChange);
         else if (mobileLayoutMQ.addListener) mobileLayoutMQ.addListener(onLayoutBreakpointChange);
@@ -1538,9 +1760,16 @@
         // establishing the viewport after this script parses, so matchMedia can
         // report the pre-layout width. Reconcile once the first frame is real.
         requestAnimationFrame(() => {
-            if (mobileLayoutMQ.matches === isMobileLayout) return;
+            if (mobileLayoutMQ.matches === isMobileLayout) {
+                // The breakpoint agrees, but the scroll path may still be wrong:
+                // isTouch is also part of the decision, and a zero-width parse
+                // makes the media query itself report "mobile" for a desktop.
+                applyScrollMode();
+                return;
+            }
             isMobileLayout = mobileLayoutMQ.matches;
             swapVideoVariants();
+            applyScrollMode();
         });
 
         // Arrive under the branded veil, then fade it once the opening clip
@@ -1609,6 +1838,20 @@
             scrollImmediately(scrollForIndex(IDX_FIRST_REAL));
             lastScroll = scrollForIndex(IDX_FIRST_REAL);
         });
+
+        // Warm the mosaic, but only once this page has everything it needs. As a
+        // <link rel=prefetch> in the head it was measurably starting BEFORE the
+        // hero clip and taking connection away from it.
+        window.addEventListener('load', () => {
+            const warm = () => {
+                const l = document.createElement('link');
+                l.rel = 'prefetch';
+                l.href = MOSAIC_URL;
+                document.head.appendChild(l);
+            };
+            if ('requestIdleCallback' in window) requestIdleCallback(warm, { timeout: 3000 });
+            else setTimeout(warm, 1200);
+        }, { once: true });
     </script>
 </body>
 </html>
